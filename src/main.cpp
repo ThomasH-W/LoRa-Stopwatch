@@ -8,10 +8,11 @@
  * lip_deps = 
  *    sandeepmistry/LoRa
  *     https://github.com/durydevelop/arduino-lib-oled
+ *     https://github.com/evert-arias/EasyBuzzer
  *
  * ToDo:
  *  add lap timer
- *            https://github.com/evert-arias/EasyBuzzer
+ *  change font
  *  battery monitor
 */
 #include <Arduino.h>
@@ -51,7 +52,7 @@ String plaintext = outgoing;
 #include <StopWatch.h>
 
 StopWatch MySW, MySwCountdown;
-//StopWatch SWarray[5];
+StopWatch SWarray[5];
 
 #define COUNTDOWN_STEPS 5
 unsigned int countDownStep = COUNTDOWN_STEPS;
@@ -234,28 +235,25 @@ void sw_run()
 // ---------------------------------------------------------------------------------------------------------
 void stopwatchLoop()
 {
-  static unsigned long swLoopTimerOld, swCountDownIntervall = 1000;
   char buf[20];
 
   if (true == timerCountdownRunning)
   {
+
     // check if countdown expired
     if (MySwCountdown.elapsed() > 1000 * COUNTDOWN_STEPS)
     {
-      sw_run();
       MySwCountdown.stop();
+      sw_run();
       timerCountdownRunning = false;
       Serial.printf("stopwatchLoop> MySwCountdown elapsed %d\n", MySwCountdown.elapsed());
       MySwCountdown.reset();
     }
 
-    // do countdown, update oled every 200ms
-    if (millis() - swLoopTimerOld > swCountDownIntervall)
+    // every second
+    if (MySwCountdown.elapsed() > 1000 * (COUNTDOWN_STEPS - countDownStep))
     {
-      swLoopTimerOld = millis(); // timestamp the message
       Serial.printf("stopwatchLoop> countdown = %d at %d\n", countDownStep, MySwCountdown.elapsed());
-
-      // if (countDownStep > 0)
       beepLow();
 
       itoa(countDownStep, buf, 10);
@@ -374,13 +372,20 @@ void oledStatus()
         swTime = 0;
         timeMillis2Char(buf);
         oledClearRow(3);
-        oled2xPrint(0, 3, buf);
-      } // SW_RESET
+        oled2xPrint(0, 3, buf); // double size - will use line 3+4
+      }                         // SW_RESET
       oled_sw_mode_old = sw_mode;
     } // mode changed, udate required
 
     if (sys_mode != oled_sys_mode_old)
     {
+      /*
+      oledPrint(0, 2, "2");
+      oledPrint(0, 3, "3");
+      oledPrint(0, 4, "4");
+      oledPrint(0, 5, "5");
+      oledPrint(0, 6, "6");
+      */
       oledClearRow(7);
       oledPrint(0, 7, "Mode");
       sprintf(buf, "%2x", localAddress);
