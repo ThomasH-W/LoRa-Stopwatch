@@ -32,10 +32,10 @@ enum stopwatch_modes
     SW_FALSESTART,
     SW_LAP,
     SW_STOP,
-    SW_RESET
+    SW_RESET,
+    SW_PING,
+    SW_PONG
 };
-
-
 
 enum button1_modes
 {

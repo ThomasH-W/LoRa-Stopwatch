@@ -51,22 +51,24 @@ String plaintext = outgoing;
 
 #include <StopWatch.h>
 
-StopWatch MySW, MySwCountdown;
+StopWatch MySW, MySwCountdown, MySwPing;
 StopWatch SWarray[5];
 
 #define COUNTDOWN_STEPS 5
 unsigned int countDownStep = COUNTDOWN_STEPS;
-unsigned int swTime = 0;
+unsigned int swTime = 0, swPong = 0, swRoundtrip = 0;
 
 system_modes sys_mode = SYS_BOOT;
 stopwatch_modes sw_mode = SW_IDLE, sw_mode_old = SW_RESET, sw_mode_received;
-const char sw_mode_name[7][10] = {"Zzzz",   // 0 SW_IDLE
-                                  "Beep",   // 1 SW_COUNTDOWN
-                                  "Run",    // 2 SW_RUNNING
-                                  "FALSE",  // 3 SW FALSESTART
-                                  "Lap",    // 4 SW_LAP
-                                  "Stop",   // 5 SW_STOP
-                                  "Reset"}; // 6 RESET
+const char sw_mode_name[9][10] = {"Zzzz",  // 0 SW_IDLE
+                                  "Beep",  // 1 SW_COUNTDOWN
+                                  "Run",   // 2 SW_RUNNING
+                                  "FALSE", // 3 SW FALSESTART
+                                  "Lap",   // 4 SW_LAP
+                                  "Stop",  // 5 SW_STOP
+                                  "Reset", // 6 SW_RESET
+                                  "Ping",  // 7 SW_PING
+                                  "Pong"}; // 8 SW_PONG
 
 button1_modes btn1_mode = BTN1_START;
 const char btn1_name[4][10] = {"Start",  // 0 BTN1_START
@@ -116,7 +118,7 @@ void loraLoop()
   {
     loraMessageReceived = false;
 
-    Serial.printf("loraLoop> incoming mode: %d\n", incomingSwMode);
+    // Serial.printf("loraLoop> incoming mode: %d\n", incomingSwMode);
     switch (incomingSwMode)
     {
     case SW_IDLE:
@@ -143,6 +145,16 @@ void loraLoop()
     case SW_FALSESTART:
       sw_mode = SW_STOP;
       break;
+    case SW_PING:
+      sendMessage(SW_PONG, "pong");
+      break;
+    case SW_PONG:
+      MySwPing.stop();
+      swPong = MySwPing.elapsed();
+      swRoundtrip = swPong;
+      MySwPing.reset();
+      Serial.printf("LoRa - pong received: roundtrip took %u ms\n", swPong);
+      break;
     default:
       // if nothing else matches, do the default
       // default is optional
@@ -152,11 +164,17 @@ void loraLoop()
 
   if (sw_mode == SW_IDLE)
   {
-    // do countdown, update oled every 200ms
     if (millis() - loraLoopTimerOld > loraAliveintervall)
     {
-      // Serial.printf("loraLoop> send alive\n");
-      sendMessage(SW_IDLE, "Alive");
+      Serial.println("LoRa - starting roundtrip, send ping");
+      if (MySwPing.isRunning() == true)
+      {
+        MySwPing.stop();
+        MySwPing.reset();
+      }
+      MySwPing.start();
+      swPong = 0;
+      sendMessage(SW_PING, "ping");
       loraLoopTimerOld = millis(); // timestamp the message
     }                              // if timer expired
   }                                // if SW_IDLE
@@ -221,6 +239,7 @@ void sw_start()
 // set currentTime = 0
 void sw_run()
 {
+  delay(swRoundtrip); // ???
   MySW.start();
   // Serial.printf("sw_run> start timer\n");
   timerRunning = true;
@@ -361,6 +380,13 @@ void oledStatus()
       oled2xPrint(0, 3, buf);
     } // mode changed, udate required
 
+    if (sw_mode == SW_IDLE)
+    {
+      sprintf(buf, "%d", swRoundtrip);
+      oledPrint(7, 7, buf);
+    }                         // SW_RESET
+
+
     if (sw_mode != oled_sw_mode_old)
     {
       oledClearRow(1);
@@ -373,6 +399,8 @@ void oledStatus()
         timeMillis2Char(buf);
         oledClearRow(3);
         oled2xPrint(0, 3, buf); // double size - will use line 3+4
+        sprintf(buf, "%d", swRoundtrip);
+        oledPrint(7, 7, buf);
       }                         // SW_RESET
       oled_sw_mode_old = sw_mode;
     } // mode changed, udate required
@@ -574,7 +602,7 @@ void sendMessage(stopwatch_modes outSwMode, const char *outgoing)
   LoRa.print(encrypted_outgoing);                                              // add payload
   LoRa.endPacket();                                                            // finish packet and send it
   LoRa.receive();                                                              // switch back to receive mode
-  Serial.printf("------------------------- sendMessage> sending id %d: swm %d = %s / %s\n", msgCount, outgoingSwMode, sw_mode_name[outgoingSwMode], outgoing);
+  // Serial.printf("------------------------- sendMessage> sending id %d: swm %d = %s / %s\n", msgCount, outgoingSwMode, sw_mode_name[outgoingSwMode], outgoing);
   msgCount++; // increment message ID
 
 } // end of function
@@ -707,7 +735,7 @@ void beepLow()
 //  The true ESP32 chip ID is essentially its MAC address
 void setupBuzzer()
 {
-  Serial.printf("setupBuzzer on PIN %d", PIN_BUZ_1);
+  Serial.printf("setupBuzzer on PIN %d\n", PIN_BUZ_1);
   EasyBuzzer.setPin(PIN_BUZ_1);
 } // end of function
 
