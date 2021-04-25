@@ -30,8 +30,8 @@
 
 // Buttons
 #define PIN_BTN_1 0 // on board button
-#define PIN_BTN_2 36
-#define PIN_BTN_3 37
+#define PIN_BTN_2 13
+#define PIN_BTN_3 12
 
 // Buzzer -- ESP32: GPIO 34-39 can't be used
 #define PIN_BUZ_1 21 // on board button
