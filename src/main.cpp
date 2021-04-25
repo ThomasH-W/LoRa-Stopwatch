@@ -56,7 +56,7 @@ String plaintext = outgoing;
 
 #include <StopWatch.h>
 
-StopWatch MySW, MySwCountdown, MySwPing;
+StopWatch MySW, MySwCountdown, MySwPing, MyDeepSleep;
 StopWatch SWarray[5];
 
 #define COUNTDOWN_STEPS 5
@@ -123,6 +123,87 @@ unsigned int frequencyHigh = 797;
 unsigned int frequencyLow = 641;
 unsigned int frequencyMid = 400;
 unsigned int duration = 200;
+
+// deep Sleep
+int GPIO_reason = 0;
+// #define BUTTON_PIN_BITMASK 0x8004
+// #define BUTTON_PIN_BITMASK 0x200000000 // GPIO33 2^33 in hex
+#define BUTTON_PIN_BITMASK 0x000000000 // GPIO0 2^0 in hex
+unsigned int deepSleepInterval = 60000 *10; // 60k = 1min
+// https://lastminuteengineers.com/esp32-deep-sleep-wakeup-sources/
+
+// ---------------------------------------------------------------------------------------------------------
+void deepSleepWakeUpReason()
+{
+  esp_sleep_wakeup_cause_t wakeup_reason;
+  wakeup_reason = esp_sleep_get_wakeup_cause();
+  switch (wakeup_reason)
+  {
+  case ESP_SLEEP_WAKEUP_EXT0:
+    Serial.println("Wakeup caused by external signal using RTC_IO");
+    break;
+  case ESP_SLEEP_WAKEUP_EXT1:
+    Serial.println("Wakeup caused by external signal using RTC_CNTL");
+    break;
+  case ESP_SLEEP_WAKEUP_TIMER:
+    Serial.println("Wakeup caused by timer");
+    break;
+  case ESP_SLEEP_WAKEUP_TOUCHPAD:
+    Serial.println("Wakeup caused by touchpad");
+    break;
+  case ESP_SLEEP_WAKEUP_ULP:
+    Serial.println("Wakeup caused by ULP program");
+    break;
+  default:
+    Serial.println("Wakeup was not caused by deep sleep.");
+    break;
+  }
+} // end of function
+
+// ---------------------------------------------------------------------------------------------------------
+void deepSleepEnable()
+{
+  esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK, ESP_EXT1_WAKEUP_ANY_HIGH);
+  Serial.println("Going to sleep now.");
+  esp_deep_sleep_start();
+} // end of function
+
+// ---------------------------------------------------------------------------------------------------------
+void deepSleepSetup()
+{
+  deepSleepWakeUpReason(); //Print wakeup Reason
+
+  // ext0 -  Use it when you want to wake-up the chip by one particular pin only.
+  //  esp_sleep_enable_ext0_wakeup(GPIO_PIN, LOGIC_LEVEL);
+  esp_sleep_enable_ext0_wakeup((gpio_num_t)0, 0); //1 = High, 0 = Low
+
+  /*
+  // ext1 – Use it when you have several buttons for the wake-up.
+  GPIO_reason = esp_sleep_get_ext1_wakeup_status();
+
+  if (GPIO_reason != 0)
+  {
+    Serial.print("GPIO that triggered the wake up: GPIO ");
+    Serial.println((log(GPIO_reason)) / log(2), 0);
+  }
+  */
+
+  MyDeepSleep.start();
+} // end of function
+
+// ---------------------------------------------------------------------------------------------------------
+void deepSleepLoop()
+{
+  // every second
+  if (MyDeepSleep.elapsed() > deepSleepInterval)
+  {
+    Serial.printf("deepSleepLoop> timer elapsed %d\n", MyDeepSleep.elapsed());
+    beepLow();
+    MyDeepSleep.stop();
+    MyDeepSleep.reset();
+    deepSleepEnable();
+  }
+} // end of function
 
 // ---------------------------------------------------------------------------------------------------------
 //  process messages if something has been recived
@@ -367,7 +448,7 @@ void nextStopwatchMode(stopwatch_modes cur_mode)
     {
     case SW_IDLE: // current state IDLE, requested start
       sendMessage(SW_COUNTDOWN, sys_mode, "Start");
-      delay(swRoundtrip/2); // grant some time so the other device will be started at the same time
+      delay(swRoundtrip / 2); // grant some time so the other device will be started at the same time
       // Serial.println("call sw_start");
       sw_start();
       break;
@@ -922,6 +1003,8 @@ void setup()
 
   delay(500);
   oledClear();
+  deepSleepSetup();
+
   MySW.setResolution(StopWatch::MILLIS);
 } // end of function
 
@@ -936,6 +1019,7 @@ void loop()
   button2.check();     // check if button was pressed
   button3.check();     // check if button was pressed
   EasyBuzzer.update(); // play buzzer if reuqested
+  deepSleepLoop();     // check if device should go into sleep
   yield();             // not sure if this is required
 
 } // end of function
