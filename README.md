@@ -22,6 +22,12 @@ I.e. you can initiate the start on one device and stop on another.
 ## Reset
 ![Display-Default](README/images/LoraSW-4.jpg)
 
+## Loop
+![Display-Default](README/images/LoraSW-5.jpg)
+
+## Admin
+![Display-Default](README/images/LoraSW-6.jpg)
+
 ## Hardware
 
 Lora modules being used here do have an OLED and are based on the ESP32.
