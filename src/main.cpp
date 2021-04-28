@@ -2,6 +2,8 @@
  * file   : main.cpp
  * date   : 2021-04-28
  * 
+ * https://github.com/ThomasH-W/LoRa-Stopwatch
+ * 
  * https://github.com/sandeepmistry/arduino-LoRa/blob/master/examples/LoRaDuplexCallback/LoRaDuplexCallback.ino
  * https://github.com/alexantoniades/encrypted-lora-gateway/blob/master/Encrypted_LoRa_Gateway.ino
  * 
