@@ -5,6 +5,8 @@
 #define MAIN_h
 
 #include "Arduino.h"
+#include <StopWatch.h>
+
 // #include "FS.h"
 // #include "LITTLEFS.h" //this needs to be first, or it all crashes and burns...
 #define FORMAT_LITTLEFS_IF_FAILED true
@@ -88,19 +90,26 @@ void oledInit();
 void configLora();
 void configWifi();
 void connectWifi();
+
+void setup_oled();
 void oledPrint(int x, int y, const char *message);
 void oled2xPrint(int x, int y, const char *message);
 void oled3xPrint(int x, int y, const char *message);
 void oledClear();
 void oledClearRow(int row);
+
 void onReceive(int packetSize);
 void aes_init();
 String encrypt(const char *msg, byte iv[]);
-String decrypt(char *msg, byte iv[]);
+String decrypt(const char *msg, byte iv[]);
 void sendMessage(stopwatch_modes outSwMode, system_modes outSysMode, const char *outgoing);
+
 void nextStopwatchMode(stopwatch_modes cur_mode);
-void timeMillis2Char(char *buf);
+void timeMillis2Char(unsigned int curTime, char *buf);
 void nextSysMode(system_modes cur_sys_mode);
+
+void deepSleepSetup(StopWatch *MyDeepSleepTimer);
+void deepSleepLoop(stopwatch_modes cur_sw_mode, StopWatch *MyDeepSleepTimer);
 
 void beepHigh();
 void beepLow();

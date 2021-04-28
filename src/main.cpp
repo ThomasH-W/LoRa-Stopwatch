@@ -1,22 +1,20 @@
 /*
- * file   : lora-stopwatch.cpp
- * date   : 2021-04-11
+ * file   : main.cpp
+ * date   : 2021-04-28
  * 
  * https://github.com/sandeepmistry/arduino-LoRa/blob/master/examples/LoRaDuplexCallback/LoRaDuplexCallback.ino
  * https://github.com/alexantoniades/encrypted-lora-gateway/blob/master/Encrypted_LoRa_Gateway.ino
  * 
  * lip_deps = 
  *    sandeepmistry/LoRa
- *     https://github.com/durydevelop/arduino-lib-oled
  *     https://github.com/evert-arias/EasyBuzzer
  *
  * ToDo:
  *  solve timer difference of remote module
- *  add lap timer
  *  change font
  *  battery monitor
 */
-#define FIRMWARE_VERSION "0.5"
+#define FIRMWARE_VERSION "0.6"
 
 #include <Arduino.h>
 #include "main.h"
@@ -33,10 +31,6 @@ int incomingRSSI;     // incoming RSSI
 float incomingSNR;    // incoming SNR
 bool loraMessageReceived = false;
 
-#include <U8x8lib.h> // OLED display Library
-// the OLED used
-U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(OLED_TH_CLK, OLED_TH_SDA, OLED_TH_RST);
-//U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/* clock=*/15, /* data=*/4, /* reset=*/16);
 bool oledUpdate = false;
 
 #include "AESLib.h" // AES Encryption Library
@@ -56,12 +50,14 @@ String plaintext = outgoing;
 
 #include <StopWatch.h>
 
-StopWatch MySW, MySwCountdown, MySwPing, MyDeepSleep;
-StopWatch SWarray[5];
+StopWatch timerStopWatch, timerCountdown, timerPing, MyDeepSleep;
 
 #define COUNTDOWN_STEPS 5
 unsigned int countDownStep = COUNTDOWN_STEPS;
 unsigned int swTime = 0, swPong = 0, swRoundtrip = 0;
+#define TIME_LAPS_MAX 10
+unsigned int timeLaps[TIME_LAPS_MAX]; // store elapsed time
+unsigned int timeLapsUsed = 0;
 
 system_modes sys_mode = SYS_STOPWATCH, sys_mode_old = SYS_BOOT, sys_mode_received;
 const char sys_mode_name[4][10] = {"single", // 0 SYS_STOPWATCH
@@ -124,87 +120,6 @@ unsigned int frequencyLow = 641;
 unsigned int frequencyMid = 400;
 unsigned int duration = 200;
 
-// deep Sleep
-int GPIO_reason = 0;
-// #define BUTTON_PIN_BITMASK 0x8004
-// #define BUTTON_PIN_BITMASK 0x200000000 // GPIO33 2^33 in hex
-#define BUTTON_PIN_BITMASK 0x000000000 // GPIO0 2^0 in hex
-unsigned int deepSleepInterval = 60000 *10; // 60k = 1min
-// https://lastminuteengineers.com/esp32-deep-sleep-wakeup-sources/
-
-// ---------------------------------------------------------------------------------------------------------
-void deepSleepWakeUpReason()
-{
-  esp_sleep_wakeup_cause_t wakeup_reason;
-  wakeup_reason = esp_sleep_get_wakeup_cause();
-  switch (wakeup_reason)
-  {
-  case ESP_SLEEP_WAKEUP_EXT0:
-    Serial.println("Wakeup caused by external signal using RTC_IO");
-    break;
-  case ESP_SLEEP_WAKEUP_EXT1:
-    Serial.println("Wakeup caused by external signal using RTC_CNTL");
-    break;
-  case ESP_SLEEP_WAKEUP_TIMER:
-    Serial.println("Wakeup caused by timer");
-    break;
-  case ESP_SLEEP_WAKEUP_TOUCHPAD:
-    Serial.println("Wakeup caused by touchpad");
-    break;
-  case ESP_SLEEP_WAKEUP_ULP:
-    Serial.println("Wakeup caused by ULP program");
-    break;
-  default:
-    Serial.println("Wakeup was not caused by deep sleep.");
-    break;
-  }
-} // end of function
-
-// ---------------------------------------------------------------------------------------------------------
-void deepSleepEnable()
-{
-  esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK, ESP_EXT1_WAKEUP_ANY_HIGH);
-  Serial.println("Going to sleep now.");
-  esp_deep_sleep_start();
-} // end of function
-
-// ---------------------------------------------------------------------------------------------------------
-void deepSleepSetup()
-{
-  deepSleepWakeUpReason(); //Print wakeup Reason
-
-  // ext0 -  Use it when you want to wake-up the chip by one particular pin only.
-  //  esp_sleep_enable_ext0_wakeup(GPIO_PIN, LOGIC_LEVEL);
-  esp_sleep_enable_ext0_wakeup((gpio_num_t)0, 0); //1 = High, 0 = Low
-
-  /*
-  // ext1 – Use it when you have several buttons for the wake-up.
-  GPIO_reason = esp_sleep_get_ext1_wakeup_status();
-
-  if (GPIO_reason != 0)
-  {
-    Serial.print("GPIO that triggered the wake up: GPIO ");
-    Serial.println((log(GPIO_reason)) / log(2), 0);
-  }
-  */
-
-  MyDeepSleep.start();
-} // end of function
-
-// ---------------------------------------------------------------------------------------------------------
-void deepSleepLoop()
-{
-  // every second
-  if (MyDeepSleep.elapsed() > deepSleepInterval)
-  {
-    Serial.printf("deepSleepLoop> timer elapsed %d\n", MyDeepSleep.elapsed());
-    beepLow();
-    MyDeepSleep.stop();
-    MyDeepSleep.reset();
-    deepSleepEnable();
-  }
-} // end of function
-
 // ---------------------------------------------------------------------------------------------------------
 //  process messages if something has been recived
 //  when idle, send alive to all
@@ -225,21 +140,8 @@ void loraLoop()
                   incomingSwMode, sw_mode_name[incomingSwMode],
                   incomingSysMode, sys_mode_name[incomingSysMode]);
 */
-    switch (incomingSysMode) // TYPE CONVERIOSN DID NOT WORK; SO USING SWITCH
-    {
-    case SYS_STOPWATCH:
-      incSysMode = SYS_STOPWATCH;
-      break;
-    case SYS_BEEPLOOP:
-      incSysMode = SYS_BEEPLOOP;
-      break;
-    case SYS_ADMIN:
-      incSysMode = SYS_ADMIN;
-      break;
-    case SYS_BOOT:
-      incSysMode = SYS_BOOT;
-      break;
-    } // switch
+
+    incSysMode = (system_modes)incomingSysMode;
 
     if (incSysMode != sys_mode) // if mode is different, switch this module
     {
@@ -280,10 +182,10 @@ void loraLoop()
         sendMessage(SW_PONG, sys_mode, "pong");
         break;
       case SW_PONG:
-        MySwPing.stop();
-        swPong = MySwPing.elapsed();
+        timerPing.stop();
+        swPong = timerPing.elapsed();
         swRoundtrip = swPong;
-        MySwPing.reset();
+        timerPing.reset();
         Serial.printf("LoRa - pong received: roundtrip took %u ms\n", swPong);
         break;
       default:
@@ -296,18 +198,18 @@ void loraLoop()
 
   } // lora msg received
 
-  // when idle, send ping in order to measure tiem for roundtrip
+  // when idle, send ping in order to measure time for roundtrip
   if (sw_mode == SW_IDLE)
   {
     if (millis() - loraLoopTimerOld > loraAliveintervall)
     {
       Serial.println("LoRa - starting roundtrip, send ping");
-      if (MySwPing.isRunning() == true)
+      if (timerPing.isRunning() == true)
       {
-        MySwPing.stop();
-        MySwPing.reset();
+        timerPing.stop();
+        timerPing.reset();
       }
-      MySwPing.start();
+      timerPing.start();
       swPong = 0;
       sendMessage(SW_PING, sys_mode, "ping");
       loraLoopTimerOld = millis(); // timestamp the message
@@ -317,11 +219,36 @@ void loraLoop()
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
+// save time for last lap
+void sw_lap()
+{
+  unsigned int sw_time_lap;
+
+  sw_time_lap = timerStopWatch.elapsed();
+  if (timerRemoteStart == true)
+  {
+    Serial.printf("sw_lap> timer started remotely. timer %u - %u", sw_time_lap, timerRemoteOffset);
+    sw_time_lap -= timerRemoteOffset;
+    sw_time_lap -= swRoundtrip;
+    Serial.printf(" = %d\n", sw_time_lap);
+  }
+  beepMid();
+  if (TIME_LAPS_MAX > timeLapsUsed) // don't write if max entries stored
+  {
+    timeLaps[timeLapsUsed] = sw_time_lap;
+    timeLapsUsed++;
+    Serial.printf("sw_lap> time for lap %u: %u\n", timeLapsUsed, sw_time_lap);
+  }
+  else
+    Serial.printf("sw_lap> lap %u exceeded limit of %u entries\n", timeLapsUsed + 1, TIME_LAPS_MAX);
+} // end of function
+
+// ---------------------------------------------------------------------------------------------------------
 // set timerRunning = false,
 void sw_stop()
 {
-  MySW.stop();
-  swTime = MySW.elapsed();
+  timerStopWatch.stop();
+  swTime = timerStopWatch.elapsed();
   Serial.printf("sw_stop> time: %u\n", swTime);
   if (timerRemoteStart == true)
   {
@@ -344,19 +271,22 @@ void sw_stop()
 void sw_reset()
 {
   Serial.printf("sw_reset> reset timer\n");
-  MySW.stop();
-  MySW.reset();
+  timerStopWatch.reset(); // timer set to zero
   timerRunning = false;
   countDownStep = COUNTDOWN_STEPS;
-  MySwCountdown.stop();
-  MySwCountdown.reset();
-  timerCountdownRunning = false;
+  timerCountdown.reset();
   oledClearRow(3);
+  timerCountdownRunning = false;
   timerRemoteStart = false;
   sw_mode_old = sw_mode;
   sw_mode = SW_IDLE;
+  MyDeepSleep.reset();
+  MyDeepSleep.start();
   swTime = 0;
   btn1_mode = BTN1_START;
+  timeLapsUsed = 0;
+  for (int i = 0; i < TIME_LAPS_MAX; i++) // clear old laps
+    timeLaps[timeLapsUsed] = 0;
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -364,7 +294,7 @@ void sw_reset()
 void sw_start()
 {
   // Serial.printf("sw_start> start countdown\n");
-  MySwCountdown.start();
+  timerCountdown.start();
   timerCountdownRunning = true;
   timerRunning = false;
   oledUpdate = true;
@@ -378,7 +308,7 @@ void sw_start()
 // set currentTime = 0
 void sw_run()
 {
-  MySW.start();
+  timerStopWatch.start();
   // Serial.printf("sw_run> start timer\n");
   timerRunning = true;
   oledUpdate = true;
@@ -398,29 +328,29 @@ void stopwatchLoop()
   {
 
     // check if countdown expired
-    if (MySwCountdown.elapsed() > 1000 * COUNTDOWN_STEPS)
+    if (timerCountdown.elapsed() > 1000 * COUNTDOWN_STEPS)
     {
-      MySwCountdown.stop();
+      timerCountdown.stop();
       if (sys_mode == SYS_STOPWATCH) //system in stopwatch mode
       {
         sw_run(); // only in system stopwatch mode
         timerCountdownRunning = false;
-        MySwCountdown.reset();
-        Serial.printf("stopwatchLoop> single MySwCountdown elapsed %d, mode=%d %s\n", MySwCountdown.elapsed(), sys_mode, sys_mode_name[sys_mode]);
+        timerCountdown.reset();
+        Serial.printf("stopwatchLoop> single timerCountdown elapsed %d, mode=%d %s\n", timerCountdown.elapsed(), sys_mode, sys_mode_name[sys_mode]);
       }
       else if (sys_mode == SYS_BEEPLOOP) //system in continous loop mode
       {
-        Serial.printf("stopwatchLoop> loop MySwCountdown elapsed %d, mode=%d %s\n", MySwCountdown.elapsed(), sys_mode, sys_mode_name[sys_mode]);
-        MySwCountdown.reset();
+        Serial.printf("stopwatchLoop> loop timerCountdown elapsed %d, mode=%d %s\n", timerCountdown.elapsed(), sys_mode, sys_mode_name[sys_mode]);
+        timerCountdown.reset();
         delay(2000); // pause for 2sec
         sw_start();
       }
     }
 
     // every second
-    if (MySwCountdown.elapsed() > 1000 * (COUNTDOWN_STEPS - countDownStep))
+    if (timerCountdown.elapsed() > 1000 * (COUNTDOWN_STEPS - countDownStep))
     {
-      Serial.printf("stopwatchLoop> countdown = %d at %d\n", countDownStep, MySwCountdown.elapsed());
+      Serial.printf("stopwatchLoop> countdown = %d at %d\n", countDownStep, timerCountdown.elapsed());
       beepLow();
 
       itoa(countDownStep, buf, 10);
@@ -456,7 +386,7 @@ void nextStopwatchMode(stopwatch_modes cur_mode)
       sendMessage(SW_STOP, sys_mode, "Stop 2");
       Serial.println("call sw_stop");
       sw_stop();
-      timeMillis2Char(buf);
+      timeMillis2Char(swTime, buf);
       sendMessage(SW_STOP, sys_mode, buf);
       break;
     case SW_COUNTDOWN:
@@ -512,44 +442,51 @@ void nextStopwatchMode(stopwatch_modes cur_mode)
 //
 void nextSysMode(system_modes cur_sys_mode)
 {
-  sys_mode_old = sys_mode;
-  switch (cur_sys_mode)
+  if (sw_mode == SW_IDLE)
   {
-  case SYS_STOPWATCH:
-    sys_mode = SYS_BEEPLOOP;
-    break;
-  case SYS_BEEPLOOP:
-    sys_mode = SYS_ADMIN;
-    break;
-  case SYS_ADMIN:
-    sys_mode = SYS_STOPWATCH;
-    sw_mode = SW_IDLE;
-    break;
-  case SYS_BOOT:
-    sys_mode = SYS_BEEPLOOP;
-    break;
+    sys_mode_old = sys_mode;
+    switch (cur_sys_mode)
+    {
+    case SYS_STOPWATCH:
+      sys_mode = SYS_BEEPLOOP;
+      break;
+    case SYS_BEEPLOOP:
+      sys_mode = SYS_ADMIN;
+      break;
+    case SYS_ADMIN:
+      sys_mode = SYS_STOPWATCH;
+      sw_mode = SW_IDLE;
+      break;
+    case SYS_BOOT:
+      sys_mode = SYS_BEEPLOOP;
+      break;
+    }
+    sendMessage(SW_IDLE, sys_mode, "sysmode");
+    sw_reset();
+    Serial.printf("nextSysMode>: %d %s -> %d %s\n", sys_mode_old, sys_mode_name[sys_mode_old], sys_mode, sys_mode_name[sys_mode]);
+  } // SW_IDLE
+  else if (sw_mode == SW_RUNNING)
+  {
+    sw_lap();
   }
-  sendMessage(SW_IDLE, sys_mode, "sysmode");
-  sw_reset();
-  Serial.printf("nextSysMode>: %d %s -> %d %s\n", sys_mode_old, sys_mode_name[sys_mode_old], sys_mode, sys_mode_name[sys_mode]);
 
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
 // convert unsgined long time into readable format
-void timeMillis2Char(char *buf)
+void timeMillis2Char(unsigned int curTime, char *buf)
 {
-  if (swTime == 0)
+  if (curTime == 0)
   {
     sprintf(buf, "--:--:--"); // nicer way of showing idle timr
-    Serial.println(buf);
+    // Serial.println(buf);
   }
   else
   {
-    float durMSf = (swTime % 1000);               // use float so we can round later on
-    unsigned int durMS2 = int(durMSf / 10 + 0.5); // addd 0.5 to correct wrong rounding
-    unsigned int durSS = (swTime / 1000) % 60;    //Seconds
-    unsigned int durMM = (swTime / (60000)) % 60; //Minutes
+    float durMSf = (curTime % 1000);               // use float so we can round later on
+    unsigned int durMS2 = int(durMSf / 10 + 0.5);  // addd 0.5 to correct wrong rounding
+    unsigned int durSS = (curTime / 1000) % 60;    //Seconds
+    unsigned int durMM = (curTime / (60000)) % 60; //Minutes
     sprintf(buf, "%2u:%02u:%02u", durMM, durSS, durMS2);
     // Serial.printf("%2u:%2u:%2u / %f\n", durMM, durSS, durMS2, durMSf);
   }
@@ -565,12 +502,16 @@ void oledAdmin(bool initAdmin)
   {
     oledClear();
     oledPrint(0, 1, "Firmware");
+    oledPrint(0, 3, "  ID");
     oledPrint(0, 4, "RSSI");
-    oledPrint(0, 5, "SNR");
+    oledPrint(0, 5, " SNR");
     oledPrint(0, 7, "ping");
   }
 
   oledPrint(10, 1, FIRMWARE_VERSION);
+
+  sprintf(buf, "%2x", localAddress);
+  oledPrint(7, 3, buf);
 
   sprintf(buf, "%d", incomingRSSI);
   oledPrint(7, 4, buf);
@@ -595,15 +536,38 @@ void oledStatus()
 
     if (sw_mode == SW_RUNNING)
     {
-      swTime = MySW.elapsed();
-      timeMillis2Char(buf);
+      swTime = timerStopWatch.elapsed();
+      timeMillis2Char(swTime, buf);
       oled2xPrint(0, 3, buf);
+
+      if (timeLapsUsed == 1)
+      {
+        timeMillis2Char(timeLaps[0], buf);
+        oledPrint(8, 5, buf);
+      }
+      else if (timeLapsUsed == 2)
+      {
+        timeMillis2Char(timeLaps[1], buf);
+        oledPrint(8, 5, buf);
+        timeMillis2Char(timeLaps[0], buf);
+        oledPrint(8, 6, buf);
+      }
+      else if (timeLapsUsed > 2)
+      {
+        timeMillis2Char(timeLaps[timeLapsUsed - 1], buf);
+        oledPrint(8, 5, buf);
+        timeMillis2Char(timeLaps[timeLapsUsed - 2], buf);
+        oledPrint(8, 6, buf);
+        timeMillis2Char(timeLaps[timeLapsUsed - 3], buf);
+        oledPrint(8, 7, buf);
+      }
+
     } // mode changed, udate required
 
     if (sw_mode == SW_RESET)
     {
       // Serial.printf("oledStatus> time: %u\n", swTime);
-      timeMillis2Char(buf);
+      timeMillis2Char(swTime, buf);
       oled2xPrint(0, 3, buf);
     } // mode changed, udate required
 
@@ -624,12 +588,16 @@ void oledStatus()
       if (sw_mode == SW_IDLE)
       {
         swTime = 0;
-        timeMillis2Char(buf);
+        timeMillis2Char(swTime, buf);
         oledClearRow(3);
         oledClearRow(4);
+        oledClearRow(5);
+        oledClearRow(6);
+        oledClearRow(7);
         oled2xPrint(0, 3, buf); // double size - will use line 3+4
-        sprintf(buf, "%d", swRoundtrip);
-        oledPrint(7, 7, buf);
+        oledPrint(0, 7, btn2_name[btn2_mode]);
+        // sprintf(buf, "%d", swRoundtrip);
+        // oledPrint(7, 7, buf);
       } // SW_RESET
       oled_sw_mode_old = sw_mode;
     } // mode changed, udate required
@@ -665,8 +633,6 @@ void oledStatus()
         oledPrint(0, 7, btn2_name[btn2_mode]);
         oledPrint(10, 1, "      ");                // void oledPrint(int x, int y, const char *message)
         oledPrint(10, 1, sys_mode_name[sys_mode]); // void oledPrint(int x, int y, const char *message)
-        sprintf(buf, "%2x", localAddress);
-        oledPrint(14, 7, buf);
       }
 
       oled_sys_mode_old = sys_mode;
@@ -784,45 +750,6 @@ void setup_lora()
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
-void oled2xPrint(int x, int y, const char *message)
-{
-  u8x8.draw2x2String(x, y, message);
-} // end of function
-
-// ---------------------------------------------------------------------------------------------------------
-void oledPrint(int x, int y, const char *message)
-{
-  u8x8.drawString(x, y, message);
-} // end of function
-
-// ---------------------------------------------------------------------------------------------------------
-void oledClear()
-{
-  u8x8.clear();
-} // end of function
-
-// ---------------------------------------------------------------------------------------------------------
-void oledClearRow(int row)
-{
-  /*
-  for (int i = 0; i < 18; i++)
-  {
-    u8x8.drawString(i, row, " ");
-  }
-  */
-  u8x8.clearLine(row);
-} // end of function
-
-// ---------------------------------------------------------------------------------------------------------
-void setup_oled()
-{
-  // Initialize OLED
-  u8x8.begin();
-  u8x8.setFont(u8x8_font_chroma48medium8_r); // Set font
-  // u8x8.setPowerSave(0); // 1= enable or disables is_enable = 0
-} // end of function
-
-// ---------------------------------------------------------------------------------------------------------
 // void sendMessage(const char *outgoing)
 void sendMessage(stopwatch_modes outSwMode, system_modes outSysMode, const char *outgoing)
 {
@@ -884,8 +811,8 @@ void onReceive(int packetSize)
   incomingSNR = LoRa.packetSnr();
 
   // Decrypt
-  //  byte dec_iv[AES_N_BLOCK] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // iv_block gets written to, provide own fresh copy...
-  //String decr_incoming = decrypt(incoming, dec_iv);
+  byte dec_iv[AES_N_BLOCK] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // iv_block gets written to, provide own fresh copy...
+  String decr_incoming = decrypt(incoming.c_str(), dec_iv);
 
   // if message is for this device, or broadcast, print details:
   // Serial.printf("Lora msg from 0x%x received: id %d, len %d, sw-mode %d\n", sender, incomingMsgId, incomingLength, incomingSwMode);
@@ -928,12 +855,14 @@ String encrypt(const char *msg, byte iv[])
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
-String decrypt(char *msg, byte iv[])
+String decrypt(const char *msg, byte iv[])
 {
   // unsigned long ms = micros();
   int msgLen = strlen(msg);
+  char original[msgLen]; // half may be enough
+  strncpy(original, msg, msgLen);
   char decrypted[msgLen]; // half may be enough
-  aesLib.decrypt64(msg, msgLen, decrypted, aes_key, sizeof(aes_key), iv);
+  aesLib.decrypt64(original, msgLen, decrypted, aes_key, sizeof(aes_key), iv);
   return String(decrypted);
 } // end of function
 
@@ -1003,23 +932,23 @@ void setup()
 
   delay(500);
   oledClear();
-  deepSleepSetup();
+  deepSleepSetup(&MyDeepSleep);
 
-  MySW.setResolution(StopWatch::MILLIS);
+  timerStopWatch.setResolution(StopWatch::MILLIS);
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
 void loop()
 {
 
-  oledStatus();        // update display
-  stopwatchLoop();     // check if countdown is running
-  loraLoop();          // check if message was received and process it; when idle send message every 5 sec
-  button1.check();     // check if button was pressed
-  button2.check();     // check if button was pressed
-  button3.check();     // check if button was pressed
-  EasyBuzzer.update(); // play buzzer if reuqested
-  deepSleepLoop();     // check if device should go into sleep
-  yield();             // not sure if this is required
+  oledStatus();                         // update display
+  stopwatchLoop();                      // check if countdown is running
+  loraLoop();                           // check if message was received and process it; when idle send message every 5 sec
+  button1.check();                      // check if button was pressed
+  button2.check();                      // check if button was pressed
+  button3.check();                      // check if button was pressed
+  EasyBuzzer.update();                  // play buzzer if reuqested
+  deepSleepLoop(sw_mode, &MyDeepSleep); // check if device should go into sleep
+  yield();                              // not sure if this is required
 
 } // end of function
