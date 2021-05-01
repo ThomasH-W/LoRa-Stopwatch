@@ -62,7 +62,7 @@ StopWatch timerStopWatch, timerCountdown, timerPing, MyDeepSleep;
 #define COUNTDOWN_STEPS 5
 unsigned int countDownStep = COUNTDOWN_STEPS;
 unsigned int swTime = 0, swPong = 0, swRoundtrip = 0;
-#define TIME_LAPS_MAX 10
+
 unsigned int timeLaps[TIME_LAPS_MAX]; // store elapsed time
 unsigned int timeLapsUsed = 0;
 
@@ -548,12 +548,12 @@ void oledLoop()
 
   if ((millis() - oledTimerOld > oledUpdateIntervall) || oledUpdate == true)
   {
-
     if (sw_mode == SW_RUNNING)
     {
       swTime = timerStopWatch.elapsed();
       timeMillis2Char(swTime, buf);
       oled2xPrint(0, 3, buf);
+      send_SW_Timer();
 
       if (oldTimeLapsUsed != timeLapsUsed) // new lap to be shown
       {
@@ -595,6 +595,7 @@ void oledLoop()
 
     if (sw_mode != oled_sw_mode_old)
     {
+      send_SW_Mode();
       if (sw_mode == SW_RUNNING)
       {
         btn2_mode = BTN2_LAP;
@@ -628,6 +629,7 @@ void oledLoop()
 
     if (sys_mode != oled_sys_mode_old)
     {
+      send_SW_Mode();
       if (oled_sys_mode_old == SYS_ADMIN)
       {
         oledClear();                 // clear screen
@@ -935,6 +937,18 @@ void setupBuzzer()
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
+void send_SW_Mode()
+{
+  wsSendMode(sys_mode, sw_mode);
+} // end of function
+
+// ---------------------------------------------------------------------------------------------------------
+void send_SW_Timer()
+{
+  wsSendTimer(swTime, timeLapsUsed, timeLaps);
+} // end of function
+
+// ---------------------------------------------------------------------------------------------------------
 void setup()
 {
   uint32_t myMAC;
@@ -948,15 +962,15 @@ void setup()
   //  ;
 
   myMAC = setup_ID(); // set sender id by using last byte from chipID
-  setupBuzzer();  // assign pin to buzzer
-  setup_button(); // assign buttons and register callback
+  setupBuzzer();      // assign pin to buzzer
+  setup_button();     // assign buttons and register callback
 
   setup_oled(); // Initialise OLED Display settings
   oledPrint(0, 1, "LoRa STOPWATCH");
   oledPrint(0, 3, "Firmware");
   oledPrint(10, 3, FIRMWARE_VERSION);
 
-  setup_lora();   // Initialise and configure LoRa Radio (SX1272)
+  setup_lora();        // Initialise and configure LoRa Radio (SX1272)
   setup_WiFiAP(myMAC); // setup access point - this will add 5ms to roundtrip
 
   // delay(500);

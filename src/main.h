@@ -12,8 +12,7 @@
 #define FORMAT_LITTLEFS_IF_FAILED true
 #define FlashFS LittleFS
 
-#define AUDIO_DEFAULT_VOLUME 12
-#define AUDIO_MAX_VOLUME 20
+#define TIME_LAPS_MAX 10
 
 enum system_modes
 {
@@ -121,8 +120,12 @@ void sw_start();
 void sw_stop();
 void sw_lap();
 
-uint32_t setup_ID() ;
+uint32_t setup_ID();
 void setup_WiFiAP(uint32_t curMAC);
 void WiFiAP_loop();
+void send_SW_Mode();
+void send_SW_Timer();
+void wsSendMode(int sys_mode, int sw_mode);
+void wsSendTimer(unsigned int sw_timer, unsigned int timerUsed, unsigned int timeLaps[]);
 
 #endif

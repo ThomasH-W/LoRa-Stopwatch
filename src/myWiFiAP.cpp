@@ -39,16 +39,34 @@ const int output26 = 36;
 const int output27 = 37;
 
 // --------------------------------------------------------------------------
+// websocket - send modes for system and stopwtach - see main.h
+void wsSendMode(int sys_mode, int sw_mode)
+{
+    Serial.printf("wifi::wsSendMode> system mode %d, stopwatch mode %d\n", sys_mode, sw_mode);
+    ws.printfAll_P("sys_mode=%d", sys_mode);
+    ws.printfAll_P("sw_mode=%d", sw_mode);
+}
+
+// --------------------------------------------------------------------------
+// websocket - send timer: sw_timer = current /main timer
+void wsSendTimer(unsigned int sw_timer, unsigned int timerUsed, unsigned int timeLaps[])
+{
+    // Serial.printf("wifi::wsSendTimer> timer %u, timer 1 %u\n", sw_timer, timeLaps[0]);
+
+    ws.printfAll_P("sw_timer=%u", sw_timer);
+    ws.printfAll_P("sw_timer_used=%u", timerUsed);
+    ws.printfAll_P("timer=%u", timeLaps[0]);
+    for (int i = 1; i < TIME_LAPS_MAX; i++)
+        ws.printfAll_P(",%u", timeLaps[i]);
+}
+
+// --------------------------------------------------------------------------
 // send status to all connected clients = broadcast
+// send_SW_Mode() + send_SW_Timer() are defined in main.h calling wsSendMode() + wsSendTimer()
 void wsBroadcast()
 {
-    int presetNo = 34;
-    int volume = 9;
-
-    Serial.printf("wifi::wsSendTuner> Preset %d , Volume %d\n", presetNo, volume);
-    ws.printfAll_P("station_select=%d", presetNo);
-    ws.printfAll_P("volume=%d", volume);
-    //    ws.textAll("meta_playing=Lauv & Troye Sivan@I'm So Tired...");
+    send_SW_Mode();
+    send_SW_Timer();
 } // end of function
 
 // --------------------------------------------------------------------------
