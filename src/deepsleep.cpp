@@ -89,10 +89,7 @@ void deepSleepLoop(stopwatch_modes cur_sw_mode, StopWatch *MyDeepSleepTimer)
     if (MyDeepSleepTimer->elapsed() > deepSleepInterval)
     {
         Serial.printf("deepSleepLoop> timer elapsed %d\n", MyDeepSleepTimer->elapsed());
-        // if (cur_sw_mode == SW_IDLE)
-        {
             beepLow();
             deepSleepEnable();
-        }
     }
 } // end of functio

@@ -43,10 +43,16 @@ void oledClearRow(int row)
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
+void oledsetFont(const uint8_t *fontName)
+{
+    u8x8.setFont(fontName);
+} // end of function
+
+// ---------------------------------------------------------------------------------------------------------
 void setup_oled()
 {
     // Initialize OLED
     u8x8.begin();
-    u8x8.setFont(u8x8_font_chroma48medium8_r); // Set font
+    u8x8.setFont(u8x8_font_victoriamedium8_r); // Set font
                                                // u8x8.setPowerSave(0); // 1= enable or disables is_enable = 0
 } // end of function

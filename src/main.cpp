@@ -12,11 +12,14 @@
  *     https://github.com/evert-arias/EasyBuzzer
  *
  * ToDo:
+ *  start WiFi AP
+ *        if no impact, add web page: Start/Stop/Mode, LAPs 1...10
+ *  reset - mode: show 2 laps (big)
  *  solve timer difference of remote module
- *  change font
+ *  show 1 digits  ms
  *  battery monitor
 */
-#define FIRMWARE_VERSION "0.6"
+#define FIRMWARE_VERSION "0.8"
 
 #include <Arduino.h>
 #include "main.h"
@@ -35,9 +38,11 @@ bool loraMessageReceived = false;
 
 bool oledUpdate = false;
 
+// encrypt/decrypt will result in an additional 60ms roundtrip time
+// #define LORA_CRYPT
 #include "AESLib.h" // AES Encryption Library
-// Initialise and configure AES Encryption settings
 AESLib aesLib;
+// Initialise and configure AES Encryption settings
 char cleartext[256];
 char ciphertext[512];
 #define AES_N_BLOCK 16
@@ -86,7 +91,7 @@ const char btn1_name[4][10] = {"Start",  // 0 BTN1_START
 
 button2_modes btn2_mode = BTN2_MODE;
 const char btn2_name[5][10] = {"Mode",  // 0 BTN2_MODE
-                               "Up",    // 1 BTN2_UP
+                               "Lap",   // 1 BTN2_LAP
                                "Down",  // 2 BTN2_DOWN
                                "Reset", // 3 BTN2_RESET
                                "Back"}; // 4 BTN2_BACK
@@ -179,6 +184,10 @@ void loraLoop()
         break;
       case SW_FALSESTART:
         sw_mode = SW_STOP;
+        break;
+      case SW_LAP:
+        // Serial.println("call sw_lap");
+        sw_lap();
         break;
       case SW_PING:
         sendMessage(SW_PONG, sys_mode, "pong");
@@ -286,6 +295,7 @@ void sw_reset()
   MyDeepSleep.start();
   swTime = 0;
   btn1_mode = BTN1_START;
+  btn2_mode = BTN2_MODE;
   timeLapsUsed = 0;
   for (int i = 0; i < TIME_LAPS_MAX; i++) // clear old laps
     timeLaps[timeLapsUsed] = 0;
@@ -336,6 +346,7 @@ void stopwatchLoop()
       if (sys_mode == SYS_STOPWATCH) //system in stopwatch mode
       {
         sw_run(); // only in system stopwatch mode
+        btn2_mode = BTN2_LAP;
         timerCountdownRunning = false;
         timerCountdown.reset();
         Serial.printf("stopwatchLoop> single timerCountdown elapsed %d, mode=%d %s\n", timerCountdown.elapsed(), sys_mode, sys_mode_name[sys_mode]);
@@ -469,6 +480,7 @@ void nextSysMode(system_modes cur_sys_mode)
   } // SW_IDLE
   else if (sw_mode == SW_RUNNING)
   {
+    sendMessage(SW_LAP, sys_mode, "lap");
     sw_lap();
   }
 
@@ -526,11 +538,12 @@ void oledAdmin(bool initAdmin)
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
-void oledStatus()
+void oledLoop()
 {
-  static unsigned long oledTimerOld, oledUpdateIntervall = 84;
+  static unsigned long oledTimerOld, oledUpdateIntervall = 94;
   static stopwatch_modes oled_sw_mode_old = SW_RESET;
   static system_modes oled_sys_mode_old = SYS_BOOT;
+  static unsigned int oldTimeLapsUsed = 0;
   char buf[20];
 
   if ((millis() - oledTimerOld > oledUpdateIntervall) || oledUpdate == true)
@@ -542,65 +555,69 @@ void oledStatus()
       timeMillis2Char(swTime, buf);
       oled2xPrint(0, 3, buf);
 
-      if (timeLapsUsed == 1)
+      if (oldTimeLapsUsed != timeLapsUsed) // new lap to be shown
       {
-        timeMillis2Char(timeLaps[0], buf);
-        oledPrint(8, 5, buf);
-      }
-      else if (timeLapsUsed == 2)
-      {
-        timeMillis2Char(timeLaps[1], buf);
-        oledPrint(8, 5, buf);
-        timeMillis2Char(timeLaps[0], buf);
-        oledPrint(8, 6, buf);
-      }
-      else if (timeLapsUsed > 2)
-      {
-        timeMillis2Char(timeLaps[timeLapsUsed - 1], buf);
-        oledPrint(8, 5, buf);
-        timeMillis2Char(timeLaps[timeLapsUsed - 2], buf);
-        oledPrint(8, 6, buf);
-        timeMillis2Char(timeLaps[timeLapsUsed - 3], buf);
-        oledPrint(8, 7, buf);
-      }
-
-    } // mode changed, udate required
-
-    if (sw_mode == SW_RESET)
+        if (oldTimeLapsUsed == 1)
+        {
+          timeMillis2Char(timeLaps[0], buf);
+          oledPrint(8, 5, buf);
+        }
+        else if (timeLapsUsed == 2)
+        {
+          timeMillis2Char(timeLaps[1], buf);
+          oledPrint(8, 5, buf);
+          timeMillis2Char(timeLaps[0], buf);
+          oledPrint(8, 6, buf);
+        }
+        else if (timeLapsUsed > 2)
+        {
+          timeMillis2Char(timeLaps[timeLapsUsed - 1], buf);
+          oledPrint(8, 5, buf);
+          timeMillis2Char(timeLaps[timeLapsUsed - 2], buf);
+          oledPrint(8, 6, buf);
+          timeMillis2Char(timeLaps[timeLapsUsed - 3], buf);
+          oledPrint(8, 7, buf);
+        }
+        oldTimeLapsUsed = timeLapsUsed;
+      } // timeLapsUsed updated
+    }
+    else if (sw_mode == SW_RESET)
     {
       // Serial.printf("oledStatus> time: %u\n", swTime);
       timeMillis2Char(swTime, buf);
       oled2xPrint(0, 3, buf);
-    } // mode changed, udate required
-
-    if (sw_mode == SW_IDLE)
+    }
+    else if (sw_mode == SW_IDLE)
     {
-      sprintf(buf, "%d", swRoundtrip);
+      sprintf(buf, "%d ", swRoundtrip);
       oledPrint(7, 7, buf);
     } // SW_RESET
 
     if (sw_mode != oled_sw_mode_old)
     {
+      if (sw_mode == SW_RUNNING)
+      {
+        btn2_mode = BTN2_LAP;
+        oledClearRow(7);
+      }
+      else
+        btn2_mode = BTN2_MODE;
+
+      if (sw_mode == SW_IDLE)
+      {
+        oledClear();
+        swTime = 0;
+        timeMillis2Char(swTime, buf);
+        oled2xPrint(0, 3, buf); // double size - will use line 3+4
+      }                         // SW_RESET
+
       oledClearRow(1);
       oledPrint(0, 1, btn1_name[btn1_mode]);
       oledPrint(10, 1, "      ");                // void oledPrint(int x, int y, const char *message)
       oledPrint(10, 1, sys_mode_name[sys_mode]); // void oledPrint(int x, int y, const char *message)
+      oledPrint(0, 7, btn2_name[btn2_mode]);
       // oledPrint(11, 1, sw_mode_name[sw_mode]); // void oledPrint(int x, int y, const char *message)
 
-      if (sw_mode == SW_IDLE)
-      {
-        swTime = 0;
-        timeMillis2Char(swTime, buf);
-        oledClearRow(3);
-        oledClearRow(4);
-        oledClearRow(5);
-        oledClearRow(6);
-        oledClearRow(7);
-        oled2xPrint(0, 3, buf); // double size - will use line 3+4
-        oledPrint(0, 7, btn2_name[btn2_mode]);
-        // sprintf(buf, "%d", swRoundtrip);
-        // oledPrint(7, 7, buf);
-      } // SW_RESET
       oled_sw_mode_old = sw_mode;
     } // mode changed, udate required
 
@@ -611,13 +628,6 @@ void oledStatus()
 
     if (sys_mode != oled_sys_mode_old)
     {
-      /*
-      oledPrint(0, 2, "2");
-      oledPrint(0, 3, "3");
-      oledPrint(0, 4, "4");
-      oledPrint(0, 5, "5");
-      oledPrint(0, 6, "6");
-      */
       if (oled_sys_mode_old == SYS_ADMIN)
       {
         oledClear();                 // clear screen
@@ -635,6 +645,7 @@ void oledStatus()
         oledPrint(0, 7, btn2_name[btn2_mode]);
         oledPrint(10, 1, "      ");                // void oledPrint(int x, int y, const char *message)
         oledPrint(10, 1, sys_mode_name[sys_mode]); // void oledPrint(int x, int y, const char *message)
+        oledPrint(0, 7, btn2_name[btn2_mode]);
       }
 
       oled_sys_mode_old = sys_mode;
@@ -758,19 +769,24 @@ void sendMessage(stopwatch_modes outSwMode, system_modes outSysMode, const char 
   outgoingSwMode = outSwMode;
   outgoingSysMode = outSysMode;
 
+#ifdef LORA_CRYPT
   // Encrypt
   byte enc_iv[AES_N_BLOCK] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // iv_block gets written to, provide own fresh copy...
   String encrypted_outgoing = encrypt(outgoing, enc_iv);                       // send an encrypted message
-  LoRa.beginPacket();                                                          // start packet
-  LoRa.write(destination);                                                     // add destination address
-  LoRa.write(localAddress);                                                    // add sender address
-  LoRa.write(outgoingSwMode);                                                  // add stopwatch mode
-  LoRa.write(outgoingSysMode);                                                 // add system mode
-  LoRa.write(msgCount);                                                        // add message ID
-  LoRa.write(encrypted_outgoing.length());                                     // add payload length
-  LoRa.print(encrypted_outgoing);                                              // add payload
-  LoRa.endPacket();                                                            // finish packet and send it
-  LoRa.receive();                                                              // switch back to receive mode
+#else
+  String encrypted_outgoing = (String)outgoing;
+#endif
+
+  LoRa.beginPacket();                      // start packet
+  LoRa.write(destination);                 // add destination address
+  LoRa.write(localAddress);                // add sender address
+  LoRa.write(outgoingSwMode);              // add stopwatch mode
+  LoRa.write(outgoingSysMode);             // add system mode
+  LoRa.write(msgCount);                    // add message ID
+  LoRa.write(encrypted_outgoing.length()); // add payload length
+  LoRa.print(encrypted_outgoing);          // add payload
+  LoRa.endPacket();                        // finish packet and send it
+  LoRa.receive();                          // switch back to receive mode
   // Serial.printf("------------------------- sendMessage> sending id %d: swm %d = %s / %s\n", msgCount, outgoingSwMode, sw_mode_name[outgoingSwMode], outgoing);
   msgCount++; // increment message ID
 
@@ -812,9 +828,13 @@ void onReceive(int packetSize)
   incomingRSSI = LoRa.packetRssi();
   incomingSNR = LoRa.packetSnr();
 
+#ifdef LORA_CRYPT
   // Decrypt
   byte dec_iv[AES_N_BLOCK] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // iv_block gets written to, provide own fresh copy...
   String decr_incoming = decrypt(incoming.c_str(), dec_iv);
+#else
+  String decr_incoming = incoming;
+#endif
 
   // if message is for this device, or broadcast, print details:
   // Serial.printf("Lora msg from 0x%x received: id %d, len %d, sw-mode %d\n", sender, incomingMsgId, incomingLength, incomingSwMode);
@@ -870,7 +890,7 @@ String decrypt(const char *msg, byte iv[])
 
 // ---------------------------------------------------------------------------------------------------------
 //  The true ESP32 chip ID is essentially its MAC address
-void setupID()
+uint32_t setup_ID()
 {
   uint32_t chipId = 0; // 4 byte
   for (int i = 0; i < 17; i = i + 8)
@@ -879,6 +899,7 @@ void setupID()
   }
   localAddress = chipId & 0xFF; // get last byte
   Serial.printf("setup ID> %x - %x - using %x\n", chipId, chipId & 0xFF, localAddress);
+  return chipId;
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -916,41 +937,52 @@ void setupBuzzer()
 // ---------------------------------------------------------------------------------------------------------
 void setup()
 {
+  uint32_t myMAC;
+
   // Initialize Serial Monitor
   Serial.begin(115200);
   delay(50);
-  Serial.println("---------------------------");
+  Serial.print("\n+++++++++++++++++++++++++++++++++++++++++++++++ STOPWATCH ");
+  Serial.println(FIRMWARE_VERSION);
   //while (!Serial)
   //  ;
 
-  setupID();      // set sender id by using last byte from chipID
+  myMAC = setup_ID(); // set sender id by using last byte from chipID
   setupBuzzer();  // assign pin to buzzer
   setup_button(); // assign buttons and register callback
-  setup_oled();   // Initialise OLED Display settings
+
+  setup_oled(); // Initialise OLED Display settings
   oledPrint(0, 1, "LoRa STOPWATCH");
   oledPrint(0, 3, "Firmware");
   oledPrint(10, 3, FIRMWARE_VERSION);
-  setup_lora(); // Initialise and configure LoRa Radio (SX1272)
 
-  delay(500);
-  oledClear();
+  setup_lora();   // Initialise and configure LoRa Radio (SX1272)
+  setup_WiFiAP(myMAC); // setup access point - this will add 5ms to roundtrip
+
+  // delay(500);
   deepSleepSetup(&MyDeepSleep);
 
-  timerStopWatch.setResolution(StopWatch::MILLIS);
+  timerStopWatch.setResolution(StopWatch::MILLIS); // not needed, is default
+  oledClear();
+
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
 void loop()
 {
 
-  oledStatus();                         // update display
-  stopwatchLoop();                      // check if countdown is running
-  loraLoop();                           // check if message was received and process it; when idle send message every 5 sec
-  button1.check();                      // check if button was pressed
-  button2.check();                      // check if button was pressed
-  button3.check();                      // check if button was pressed
+  oledLoop();      // update display
+  stopwatchLoop(); // check if countdown is running
+  loraLoop();      // check if message was received and process it; when idle send message every 5 sec
+
+  button1.check(); // check if button was pressed
+  button2.check(); // check if button was pressed
+  button3.check(); // check if button was pressed
+
   EasyBuzzer.update();                  // play buzzer if reuqested
   deepSleepLoop(sw_mode, &MyDeepSleep); // check if device should go into sleep
-  yield();                              // not sure if this is required
+
+  WiFiAP_loop();
+  yield(); // not sure if this is required
 
 } // end of function

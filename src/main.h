@@ -47,7 +47,7 @@ enum button1_modes
 enum button2_modes
 {
     BTN2_MODE,
-    BTN2_UP,
+    BTN2_LAP,
     BTN2_DOWN,
     BTN2_RESET,
     BTN2_BACK
@@ -97,6 +97,7 @@ void oled2xPrint(int x, int y, const char *message);
 void oled3xPrint(int x, int y, const char *message);
 void oledClear();
 void oledClearRow(int row);
+void oledsetFont(const uint8_t *fontName);
 
 void onReceive(int packetSize);
 void aes_init();
@@ -118,5 +119,10 @@ void beepMid();
 void sw_reset();
 void sw_start();
 void sw_stop();
+void sw_lap();
+
+uint32_t setup_ID() ;
+void setup_WiFiAP(uint32_t curMAC);
+void WiFiAP_loop();
 
 #endif
