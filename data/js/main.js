@@ -5,7 +5,7 @@ import { default as ESPWSConnector, SW_MODE } from "./ESPWSConnector.js";
 
 let connectorOptions = {};
 connectorOptions.wsUrl =
-  new URLSearchParams(window.location.search).get("wsUrl") || "";
+  new URLSearchParams(window.location.search).get("wsUrl") || undefined;
 
 console.log(connectorOptions);
 

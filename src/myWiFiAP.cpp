@@ -55,6 +55,7 @@ void wsSendMode(int sys_mode, int sw_mode)
 // websocket - send timer: sw_timer = current /main timer
 void wsSendTimer(unsigned int sw_timer, unsigned int timerUsed, unsigned int timeLaps[])
 {
+    char buf[100];
     Serial.printf("wifi::wsSendTimer> timer %u, laps: %u\ntimer 1 %u\ntimer 2 %u\ntimer 3 %u\n",
                   sw_timer, timerUsed, timeLaps[0], timeLaps[1], timeLaps[2]);
 
@@ -203,13 +204,6 @@ void setup_webserver()
         Serial.println(F("fail."));
     }
 
-    webServer.serveStatic("/", LITTLEFS, "/").setCacheControl("max-age=600");
-
-    webServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-        request->redirect("/index.html");
-        delay(100);
-    });
-
     webServer.on("/inline", [](AsyncWebServerRequest *request) {
         request->send(200, "text/plain", "this works as well");
     });
@@ -220,10 +214,12 @@ void setup_webserver()
     ws.onEvent(onWsEvent);
     webServer.addHandler(&ws);
 
+    /*
     events.onConnect([](AsyncEventSourceClient *client) {
         client->send("hello!", NULL, millis(), 1000);
     });
     webServer.addHandler(&events);
+*/
 
     webServer.begin();
     Serial.println("HTTP server started");
@@ -245,9 +241,9 @@ void setup_WiFiAP(uint32_t curMAC)
     Serial.print("AP IP address: ");
     Serial.println(IP);
 
-    dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
-    dnsServer.start(DNS_PORT, "*", apIP);
-    webServer.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER); //only when requested from AP
+    // dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+    // dnsServer.start(DNS_PORT, "*", apIP);
+    // webServer.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER); //only when requested from AP
 
     setup_webserver();
 } // end of function
@@ -256,9 +252,9 @@ void setup_WiFiAP(uint32_t curMAC)
 // [E][vfs_api.cpp:64] open(): /littlefs/hotspot-detect.html does not exist
 void WiFiAP_loop()
 {
-    dnsServer.processNextRequest();
+    //dnsServer.processNextRequest();
     ws.cleanupClients();
-    /*
+
     unsigned long currentMillis = millis();
     int clients = WiFi.softAPgetStationNum();
 
@@ -270,5 +266,4 @@ void WiFiAP_loop()
             Serial.printf("WiFiAP_loop> Stations connected = %d\n", clients);
         }
     }
-    */
 }
