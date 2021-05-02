@@ -197,6 +197,7 @@ void loraLoop()
         swRoundtrip = swPong;
         timerPing.reset();
         Serial.printf("LoRa - pong received: roundtrip took %u ms\n", swPong);
+        send_Admin();
         break;
       default:
         // if nothing else matches, do the default
@@ -643,6 +644,7 @@ void oledLoop()
       if (sys_mode == SYS_ADMIN)
       {
         oledAdmin(true);
+        send_Admin();
       }
       else
       {

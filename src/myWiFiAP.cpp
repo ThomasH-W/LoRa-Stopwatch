@@ -65,7 +65,8 @@ void wsSendTimer(unsigned int sw_timer, unsigned int timerUsed, unsigned int tim
 // websocket - send modes for system and stopwtach - see main.h
 void wsSendAdmin(byte localAddress, int incomingRSSI, float incomingSNR, unsigned int swRoundtrip)
 {
-    // Serial.printf("wifi::wsSendMode> system mode %d, stopwatch mode %d\n", sys_mode, sw_mode);
+    Serial.printf("wifi::wsSendAdmin> firmware %s, deviceID %2x, RSSI %d, SNR %2.1f, trip %d\n",
+                  FIRMWARE_VERSION, localAddress, incomingRSSI, incomingSNR, swRoundtrip);
     ws.printfAll_P("admin_firmware=%s", FIRMWARE_VERSION);
     ws.printfAll_P("admin_deviceID=%2x", localAddress);
     ws.printfAll_P("admin_RSSI=%d", incomingRSSI);
