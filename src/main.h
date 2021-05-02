@@ -7,7 +7,7 @@
 #include "Arduino.h"
 #include <StopWatch.h>
 
-#define FIRMWARE_VERSION "0.9.5"
+#define FIRMWARE_VERSION "0.9.6"
 
 // #include "FS.h"
 // #include "LITTLEFS.h" //this needs to be first, or it all crashes and burns...
@@ -154,5 +154,6 @@ void wsSendAdmin(byte localAddress, int incomingRSSI, float incomingSNR, unsigne
 void wsSendCountdown(int count);
 void send_SW_Timer();
 void ws_SysMode(system_modes wsSysMode);
+system_modes mySysMode();
 
 #endif
