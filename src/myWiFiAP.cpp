@@ -51,10 +51,11 @@ void wsSendMode(int sys_mode, int sw_mode)
 // websocket - send timer: sw_timer = current /main timer
 void wsSendTimer(unsigned int sw_timer, unsigned int timerUsed, unsigned int timeLaps[])
 {
-    // Serial.printf("wifi::wsSendTimer> timer %u, timer 1 %u\n", sw_timer, timeLaps[0]);
+    Serial.printf("wifi::wsSendTimer> timer %u, laps: %u\ntimer 1 %u\ntimer 2 %u\ntimer 3 %u\n",
+                  sw_timer, timerUsed, timeLaps[0], timeLaps[1], timeLaps[2]);
 
     ws.printfAll_P("sw_timer=%u", sw_timer);
-    ws.printfAll_P("sw_timer_used=%u", timerUsed);
+    ws.printfAll_P("sw_laps_used=%u", timerUsed);
     ws.printfAll_P("timer=%u", timeLaps[0]);
     for (int i = 1; i < TIME_LAPS_MAX; i++)
         ws.printfAll_P(",%u", timeLaps[i]);

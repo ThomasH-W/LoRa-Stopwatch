@@ -14,25 +14,43 @@
 
 #define TIME_LAPS_MAX 10
 
+/*
+  [btn1:start]: btn1 triggered: function of btn1 was start
+  [btn1=stop]: btn1 function changing to stop
+
+Order of operation in mode SYS_STOPWATCH
+    SW_IDLE -> [btn1:start] -> SW_COUNTDOWN
+    SW_STOP -> [btn1:start] -> SW_RESET + [btn1=stop]
+    SW_COUNTDOWN -> [btn1:stop] -> SW_RESET + [btn1=start]
+    SW_RUNNING -> [btn1:stop] -> SW_RESET + [btn1=reset]
+    SW_RESET -> [btn1:reset] -> SW_IDLE + [btn1=start]
+    SW_FALSESTART -> [btn1:stop] -> SW_RESET + [btn1=reset]
+
+Order of operation in mode SYS_STARTLOOP
+    SW_IDLE -> [btn1:start] -> SW_COUNTDOWN
+    SW_COUNTDOWN -> [delay x sec] -> SW_COUNTDOWN -> .... // mode does not change
+    SW_COUNTDOWN -> [btn1:stop] -> SW_IDLE
+*/
+
 enum system_modes
 {
-    SYS_STOPWATCH, // 0
-    SYS_BEEPLOOP,  // 1
-    SYS_ADMIN,     // 2
-    SYS_BOOT       // 3
+    SYS_STOPWATCH, // 0 - Countdown, run, stop, reset, idle
+    SYS_STARTLOOP, // 1 - continous loop: countdown, pause
+    SYS_ADMIN,     // 2 - configuration, measure lora signal
+    SYS_BOOT       // 3 - initial state when starting module
 };
 
 enum stopwatch_modes
 {
-    SW_IDLE,       // 0
-    SW_COUNTDOWN,  // 1
-    SW_RUNNING,    // 2
-    SW_FALSESTART, // 3
-    SW_LAP,        // 4
-    SW_STOP,       // 5
-    SW_RESET,      // 6
-    SW_PING,       // 7
-    SW_PONG        // 8
+    SW_IDLE,       // 0 - do nothing
+    SW_COUNTDOWN,  // 1 - countdown, 6 steps: 5 short beeps, 1 long beep
+    SW_RUNNING,    // 2 - timer is running
+    SW_FALSESTART, // 3 - after running light barrier at start triggered
+    SW_LAP,        // 4 - save current time but don't stop stopwatch
+    SW_STOP,       // 5 - stop stopwatch
+    SW_RESET,      // 6 - clear all timers
+    SW_PING,       // 7 - send ping
+    SW_PONG        // 8 - send pong after ping received
 };
 
 enum button1_modes

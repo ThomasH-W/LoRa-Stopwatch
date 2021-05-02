@@ -1,0 +1,46 @@
+/*
+  [btn1:start]: btn1 triggered: function of btn1 was start
+  [btn1=stop]: btn1 function changing to stop
+
+Order of operation in mode SYS_STOPWATCH
+    SW_IDLE         -> [btn1:start] -> SW_COUNTDOWN
+    SW_STOP         -> [btn1:start] -> SW_RESET + [btn1=stop]
+    SW_COUNTDOWN    -> [btn1:stop]  -> SW_RESET + [btn1=start]
+    SW_RUNNING      -> [btn1:stop]  -> SW_RESET + [btn1=reset]
+    SW_RESET        -> [btn1:reset] -> SW_IDLE + [btn1=start]
+    SW_FALSESTART   -> [btn1:stop]  -> SW_RESET + [btn1=reset]
+
+Order of operation in mode SYS_STARTLOOP
+    SW_IDLE         -> [btn1:start] -> SW_COUNTDOWN
+    SW_COUNTDOWN    -> [delay x sec] -> SW_COUNTDOWN -> .... // mode does not change
+    SW_COUNTDOWN    -> [btn1:stop]  -> SW_IDLE
+*/
+
+/*
+  WiFi / Websocket
+    sys_mode=0          // [system_mode]
+    sw_mode=0           // [system_mode]
+    sw_timer=1234       // main timer in ms
+    sw_laps_used=2      // numbers of laps recorded
+    timer=50,1870,3570,6007,0,0,0,0,0,0 // time of laps
+*/
+enum system_modes
+{
+    SYS_STOPWATCH, // 0 - Countdown, run, stop, reset, idle
+    SYS_STARTLOOP, // 1 - continous loop: countdown, pause
+    SYS_ADMIN,     // 2 - configuration, measure lora signal
+    SYS_BOOT       // 3 - initial state when starting module
+};
+
+enum stopwatch_modes
+{
+    SW_IDLE,       // 0 - do nothing
+    SW_COUNTDOWN,  // 1 - countdown, 6 steps: 5 short beeps, 1 long beep
+    SW_RUNNING,    // 2 - timer is running
+    SW_FALSESTART, // 3 - after running light barrier at start triggered
+    SW_LAP,        // 4 - save current time but don't stop stopwatch
+    SW_STOP,       // 5 - stop stopwatch
+    SW_RESET,      // 6 - clear all timers
+    SW_PING,       // 7 - send ping 
+    SW_PONG        // 8 - send pong after ping received
+};

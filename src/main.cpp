@@ -68,7 +68,7 @@ unsigned int timeLapsUsed = 0;
 
 system_modes sys_mode = SYS_STOPWATCH, sys_mode_old = SYS_BOOT, sys_mode_received;
 const char sys_mode_name[4][10] = {"single", // 0 SYS_STOPWATCH
-                                   "loop",   // 1 SYS_BEEPLOOP
+                                   "loop",   // 1 SYS_STARTLOOP
                                    "admin",  // 2 SYS_ADMIN
                                    "boot"};  // 3 SYS_BOOT
 
@@ -132,7 +132,7 @@ unsigned int duration = 200;
 //  when idle, send alive to all
 void loraLoop()
 {
-  static unsigned long loraLoopTimerOld, loraAliveintervall = 5000;
+  static unsigned long loraLoopTimerOld, loraAliveIntervall = 5000;
   system_modes incSysMode = sys_mode;
 
   if (loraMessageReceived == true)
@@ -212,7 +212,7 @@ void loraLoop()
   // when idle, send ping in order to measure time for roundtrip
   if (sw_mode == SW_IDLE)
   {
-    if (millis() - loraLoopTimerOld > loraAliveintervall)
+    if (millis() - loraLoopTimerOld > loraAliveIntervall)
     {
       Serial.println("LoRa - starting roundtrip, send ping");
       if (timerPing.isRunning() == true)
@@ -252,6 +252,8 @@ void sw_lap()
   }
   else
     Serial.printf("sw_lap> lap %u exceeded limit of %u entries\n", timeLapsUsed + 1, TIME_LAPS_MAX);
+
+  send_SW_Timer(); // send timer to wifi clients
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -351,7 +353,7 @@ void stopwatchLoop()
         timerCountdown.reset();
         Serial.printf("stopwatchLoop> single timerCountdown elapsed %d, mode=%d %s\n", timerCountdown.elapsed(), sys_mode, sys_mode_name[sys_mode]);
       }
-      else if (sys_mode == SYS_BEEPLOOP) //system in continous loop mode
+      else if (sys_mode == SYS_STARTLOOP) //system in continous loop mode
       {
         Serial.printf("stopwatchLoop> loop timerCountdown elapsed %d, mode=%d %s\n", timerCountdown.elapsed(), sys_mode, sys_mode_name[sys_mode]);
         timerCountdown.reset();
@@ -421,14 +423,15 @@ void nextStopwatchMode(stopwatch_modes cur_mode)
       break;
     case SW_FALSESTART:
       sw_mode = SW_STOP;
+      sw_stop();
       break;
     default:
       // if nothing else matches, do the default
       // default is optional
       break;
-    }                                // end switch
-  }                                  // end system in stopwatch mode
-  else if (sys_mode == SYS_BEEPLOOP) //system in continous countdown mode
+    }                                 // end switch
+  }                                   // end system in stopwatch mode
+  else if (sys_mode == SYS_STARTLOOP) //system in continous countdown mode
   {
     switch (cur_mode)
     {
@@ -461,9 +464,9 @@ void nextSysMode(system_modes cur_sys_mode)
     switch (cur_sys_mode)
     {
     case SYS_STOPWATCH:
-      sys_mode = SYS_BEEPLOOP;
+      sys_mode = SYS_STARTLOOP;
       break;
-    case SYS_BEEPLOOP:
+    case SYS_STARTLOOP:
       sys_mode = SYS_ADMIN;
       break;
     case SYS_ADMIN:
@@ -471,7 +474,7 @@ void nextSysMode(system_modes cur_sys_mode)
       sw_mode = SW_IDLE;
       break;
     case SYS_BOOT:
-      sys_mode = SYS_BEEPLOOP;
+      sys_mode = SYS_STARTLOOP;
       break;
     }
     sendMessage(SW_IDLE, sys_mode, "sysmode");
@@ -492,7 +495,7 @@ void timeMillis2Char(unsigned int curTime, char *buf)
 {
   if (curTime == 0)
   {
-    sprintf(buf, "--:--:--"); // nicer way of showing idle timr
+    sprintf(buf, "--:--.--"); // nicer way of showing idle timr
     // Serial.println(buf);
   }
   else
@@ -501,7 +504,7 @@ void timeMillis2Char(unsigned int curTime, char *buf)
     unsigned int durMS2 = int(durMSf / 10 + 0.5);  // addd 0.5 to correct wrong rounding
     unsigned int durSS = (curTime / 1000) % 60;    //Seconds
     unsigned int durMM = (curTime / (60000)) % 60; //Minutes
-    sprintf(buf, "%2u:%02u:%02u", durMM, durSS, durMS2);
+    sprintf(buf, "%2u:%02u.%02u", durMM, durSS, durMS2);
     // Serial.printf("%2u:%2u:%2u / %f\n", durMM, durSS, durMS2, durMSf);
   }
 }
@@ -553,11 +556,11 @@ void oledLoop()
       swTime = timerStopWatch.elapsed();
       timeMillis2Char(swTime, buf);
       oled2xPrint(0, 3, buf);
-      send_SW_Timer();
 
       if (oldTimeLapsUsed != timeLapsUsed) // new lap to be shown
       {
-        if (oldTimeLapsUsed == 1)
+        // Serial.printf("oledLoop> show %u laps\n", timeLapsUsed);
+        if (timeLapsUsed == 1)
         {
           timeMillis2Char(timeLaps[0], buf);
           oledPrint(8, 5, buf);
@@ -586,6 +589,7 @@ void oledLoop()
       // Serial.printf("oledStatus> time: %u\n", swTime);
       timeMillis2Char(swTime, buf);
       oled2xPrint(0, 3, buf);
+      oldTimeLapsUsed = 0;
     }
     else if (sw_mode == SW_IDLE)
     {
@@ -977,6 +981,7 @@ void setup()
   deepSleepSetup(&MyDeepSleep);
 
   timerStopWatch.setResolution(StopWatch::MILLIS); // not needed, is default
+  sw_reset();
   oledClear();
 
 } // end of function
