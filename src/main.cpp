@@ -12,10 +12,7 @@
  *     https://github.com/evert-arias/EasyBuzzer
  *
  * ToDo:
- *  start WiFi AP
- *        if no impact, add web page: Start/Stop/Mode, LAPs 1...10
- *  reset - mode: show 2 laps (big)
- *  websocket ping/roundtrip
+ *  ws: send countdown step, vorlauf
  *  roundtrip with 3+ devices
  *  solve timer difference of remote module
  *  show 1 digits  ms
@@ -302,7 +299,7 @@ void sw_reset()
   btn2_mode = BTN2_MODE;
   timeLapsUsed = 0;
   for (int i = 0; i < TIME_LAPS_MAX; i++) // clear old laps
-    timeLaps[timeLapsUsed] = 0;
+    timeLaps[i] = 0;
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -367,6 +364,7 @@ void stopwatchLoop()
     // every second
     if (timerCountdown.elapsed() > 1000 * (COUNTDOWN_STEPS - countDownStep))
     {
+      send_SW_Count();
       Serial.printf("stopwatchLoop> countdown = %d at %d\n", countDownStep, timerCountdown.elapsed());
       beepLow();
 
@@ -961,6 +959,11 @@ void send_Admin()
   wsSendAdmin(localAddress, incomingRSSI, incomingSNR, swRoundtrip);
 } // end of function
 
+// ---------------------------------------------------------------------------------------------------------
+void send_SW_Count()
+{
+  wsSendCountdown(countDownStep);
+} // end of function
 // ---------------------------------------------------------------------------------------------------------
 void setup()
 {

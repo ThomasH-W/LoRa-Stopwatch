@@ -144,10 +144,12 @@ uint32_t setup_ID();
 void setup_WiFiAP(uint32_t curMAC);
 void WiFiAP_loop();
 void send_SW_Mode();
-void send_SW_Timer();
+void send_SW_Count();
 void send_Admin();
 void wsSendMode(int sys_mode, int sw_mode);
 void wsSendTimer(unsigned int sw_timer, unsigned int timerUsed, unsigned int timeLaps[]);
 void wsSendAdmin(byte localAddress, int incomingRSSI, float incomingSNR, unsigned int swRoundtrip);
+void wsSendCountdown(int count);
+void send_SW_Timer();
 
 #endif

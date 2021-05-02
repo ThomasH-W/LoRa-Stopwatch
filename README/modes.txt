@@ -22,6 +22,8 @@ Order of operation in mode SYS_STARTLOOP
     X   sys_mode=0          // [system_mode]
     X   sw_mode=0           // [stopwatch_mode]
 
+    >   sw_count==5         // countdown
+
     >   sw_timer=1234       // main timer in ms
     >   sw_laps_used=4      // numbers of laps recorded
     >   timer=50,1870,3570,6007,0,0,0,0,0,0 // time of laps

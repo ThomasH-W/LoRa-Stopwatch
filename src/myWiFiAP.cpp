@@ -56,14 +56,28 @@ void wsSendMode(int sys_mode, int sw_mode)
 void wsSendTimer(unsigned int sw_timer, unsigned int timerUsed, unsigned int timeLaps[])
 {
     char buf[100];
+    char buf2[20];
     Serial.printf("wifi::wsSendTimer> timer %u, laps: %u\ntimer 1 %u\ntimer 2 %u\ntimer 3 %u\n",
                   sw_timer, timerUsed, timeLaps[0], timeLaps[1], timeLaps[2]);
 
     ws.printfAll_P("sw_timer=%u", sw_timer);
     ws.printfAll_P("sw_laps_used=%u", timerUsed);
-    ws.printfAll_P("timer=%u", timeLaps[0]);
+
+    sprintf(buf, "timer=%u", timeLaps[0]);
     for (int i = 1; i < TIME_LAPS_MAX; i++)
-        ws.printfAll_P(",%u", timeLaps[i]);
+    {
+        sprintf(buf2, ",%u", timeLaps[i]);
+        strcat(buf, buf2);
+    }
+    ws.printfAll_P(buf);
+}
+
+// --------------------------------------------------------------------------
+// websocket - send countdown
+void wsSendCountdown(int count)
+{
+    Serial.printf("wifi::wsSendMode> countdown %d\n", count);
+    ws.printfAll_P("sw_count=%d", count);
 }
 
 // --------------------------------------------------------------------------
@@ -85,6 +99,7 @@ void wsSendAdmin(byte localAddress, int incomingRSSI, float incomingSNR, unsigne
 void wsBroadcast()
 {
     send_SW_Mode();
+    send_SW_Count();
     send_SW_Timer();
 } // end of function
 
@@ -113,20 +128,40 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
             char *command = (char *)data;
             Serial.printf("onWsEvent> command: >%s< len: %d\n", command, strlen(command));
 
-            if (strncmp(command, "volume", strlen("volume")) == 0)
+            // example: onWsEvent> command: >sw_mode=1< len: 9
+            if (strncmp(command, "sys_mode", strlen("sys_mode")) == 0)
             {
-                // okay since command is \0 terminated
-                uint8_t volume = atoi(command + strlen("volume="));
-                Serial.printf("onWsEvent> set volume to %d\n", volume);
-                // audio_mode(AUDIO_VOLUME, volume);
+                uint8_t trgt_sys_mode = atoi(command + strlen("sys_mode="));
+                Serial.printf("onWsEvent> set sys mode to %d\n", trgt_sys_mode);
+                sendMessage(SW_IDLE, (system_modes)trgt_sys_mode, "system");
             }
-            if (strncmp(command, "station_select", strlen("station_select")) == 0)
+
+            // example: onWsEvent> command: >sw_mode=1< len: 9
+            if (strncmp(command, "sw_mode", strlen("sw_mode")) == 0)
             {
                 // okay since command is \0 terminated
-                uint8_t presetNo = atoi(command + strlen("station_select="));
-                int stationID = (int)presetNo - 1;
-                Serial.printf("onWsEvent> tune to station %d [%d]\n", presetNo, stationID);
-                // tation_select(stationID); // tune to new station; index 0...9
+                uint8_t trgt_mode = atoi(command + strlen("sw_mode="));
+                Serial.printf("onWsEvent> set mode to %d\n", trgt_mode);
+                if (trgt_mode == SW_COUNTDOWN) // 1
+                {
+                    sendMessage(SW_COUNTDOWN, SYS_STOPWATCH, "Start");
+                    sw_start();
+                }
+                else if (trgt_mode == SW_STOP) // 5
+                {
+                    sendMessage(SW_STOP, SYS_STOPWATCH, "Stop");
+                    sw_stop();
+                }
+                else if (trgt_mode == SW_RESET) // 6
+                {
+                    sendMessage(SW_RESET, SYS_STOPWATCH, "Reset");
+                    sw_reset();
+                }
+                else if (trgt_mode == SW_LAP) // 4
+                {
+                    sendMessage(SW_LAP, SYS_STOPWATCH, "Lap");
+                    sw_lap();
+                }
             }
         }
     }
@@ -252,6 +287,8 @@ void setup_WiFiAP(uint32_t curMAC)
 // [E][vfs_api.cpp:64] open(): /littlefs/hotspot-detect.html does not exist
 void WiFiAP_loop()
 {
+    static int clientsOld = 0;
+
     //dnsServer.processNextRequest();
     ws.cleanupClients();
 
@@ -263,7 +300,11 @@ void WiFiAP_loop()
         dnsPreviousMillis = currentMillis;
         if (clients >= 1)
         {
-            Serial.printf("WiFiAP_loop> Stations connected = %d\n", clients);
+            if (clientsOld != clients)
+            {
+                Serial.printf("WiFiAP_loop> Stations connected = %d\n", clients);
+                clientsOld = clients;
+            }
         }
     }
 }
