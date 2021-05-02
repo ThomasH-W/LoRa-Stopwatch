@@ -16,7 +16,7 @@ int GPIO_reason = 0;
 // #define BUTTON_PIN_BITMASK 0x200000000 // GPIO33 2^33 in hex
 #define BUTTON_PIN_BITMASK 0x000000000 // GPIO0 2^0 in hex
 // unsigned int deepSleepInterval = 60000 * 10; // 60k = 1min
-unsigned int deepSleepInterval = 60000 * 10; // 60k = 10min
+unsigned long deepSleepInterval = 60000 * 10; // 60k = 10min
 // https://lastminuteengineers.com/esp32-deep-sleep-wakeup-sources/
 
 // ---------------------------------------------------------------------------------------------------------

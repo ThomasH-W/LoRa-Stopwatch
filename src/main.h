@@ -7,7 +7,7 @@
 #include "Arduino.h"
 #include <StopWatch.h>
 
-#define FIRMWARE_VERSION "0.9.2"
+#define FIRMWARE_VERSION "0.9.5"
 
 // #include "FS.h"
 // #include "LITTLEFS.h" //this needs to be first, or it all crashes and burns...
@@ -52,7 +52,9 @@ enum stopwatch_modes
     SW_STOP,       // 5 - stop stopwatch
     SW_RESET,      // 6 - clear all timers
     SW_PING,       // 7 - send ping
-    SW_PONG        // 8 - send pong after ping received
+    SW_PONG,       // 8 - send pong after ping received
+    SW_GATE_START, // 9 - light barrier at start gate
+    SW_GATE_STOP  // 10 - light barrier at finish gate
 };
 
 enum button1_modes
@@ -151,5 +153,6 @@ void wsSendTimer(unsigned int sw_timer, unsigned int timerUsed, unsigned int tim
 void wsSendAdmin(byte localAddress, int incomingRSSI, float incomingSNR, unsigned int swRoundtrip);
 void wsSendCountdown(int count);
 void send_SW_Timer();
+void ws_SysMode(system_modes wsSysMode);
 
 #endif

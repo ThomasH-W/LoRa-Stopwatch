@@ -18,7 +18,8 @@ Order of operation in mode SYS_STARTLOOP
 */
 
 /*
-  WiFi / Websocket ( x=send+receive <client2server >server2client)
+  WiFi / Websocket ( x:send+receive <:client2server >:server2client)
+
     X   sys_mode=0          // [system_mode]
     X   sw_mode=0           // [stopwatch_mode]
 
@@ -52,5 +53,7 @@ enum stopwatch_modes
     SW_STOP,       // 5 - stop stopwatch
     SW_RESET,      // 6 - clear all timers
     SW_PING,       // 7 - send ping 
-    SW_PONG        // 8 - send pong after ping received
+    SW_PONG,       // 8 - send pong after ping received
+    SW_GATE_START, // 9 - light barrier at start gate
+    SW_GATE_STOP   // 10 - light barrier at finish gate
 };

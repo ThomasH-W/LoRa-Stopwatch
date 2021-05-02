@@ -1,6 +1,6 @@
 /*
  * file   : main.cpp
- * date   : 2021-04-28
+ * date   : 2021-05-02
  * 
  * https://github.com/ThomasH-W/LoRa-Stopwatch
  * 
@@ -12,8 +12,11 @@
  *     https://github.com/evert-arias/EasyBuzzer
  *
  * ToDo:
- *  ws: send countdown step, vorlauf
  *  roundtrip with 3+ devices
+ *  add gates
+ *  define maximium run time, e.g. 15min
+ *  define max countdown loops ?
+ *  config file with wifi password
  *  solve timer difference of remote module
  *  show 1 digits  ms
  *  battery monitor
@@ -124,6 +127,17 @@ unsigned int frequencyHigh = 797;
 unsigned int frequencyLow = 641;
 unsigned int frequencyMid = 400;
 unsigned int duration = 200;
+
+// ---------------------------------------------------------------------------------------------------------
+void ws_SysMode(system_modes wsSysMode)
+{
+  if (wsSysMode != sys_mode) // if mode is different, switch this module
+  {
+    Serial.printf("websocket> incoming sys mode: %d\n", wsSysMode);
+    sw_reset();
+    sys_mode = wsSysMode;
+  }
+} // end of function
 
 // ---------------------------------------------------------------------------------------------------------
 //  process messages if something has been recived
@@ -275,6 +289,7 @@ void sw_stop()
   sw_mode = SW_RESET;
   oledUpdate = true;
   btn1_mode = BTN1_RESET;
+  send_SW_Timer(); // send timer to wifi clients
   beepMid();
 } // end of function
 
@@ -446,6 +461,8 @@ void nextStopwatchMode(stopwatch_modes cur_mode)
       Serial.println("call sw_stop");
       sw_stop();
       sw_mode = SW_IDLE;
+      break;
+    case SW_FALSESTART:
       break;
     } // end switch
   }   // end system in continous countdown mode

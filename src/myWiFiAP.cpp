@@ -101,6 +101,7 @@ void wsBroadcast()
     send_SW_Mode();
     send_SW_Count();
     send_SW_Timer();
+    send_Admin();
 } // end of function
 
 // --------------------------------------------------------------------------
@@ -134,6 +135,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
                 uint8_t trgt_sys_mode = atoi(command + strlen("sys_mode="));
                 Serial.printf("onWsEvent> set sys mode to %d\n", trgt_sys_mode);
                 sendMessage(SW_IDLE, (system_modes)trgt_sys_mode, "system");
+                ws_SysMode((system_modes)trgt_sys_mode);
             }
 
             // example: onWsEvent> command: >sw_mode=1< len: 9
