@@ -19,7 +19,6 @@
  *  show 1 digits  ms
  *  battery monitor
 */
-#define FIRMWARE_VERSION "0.8"
 
 #include <Arduino.h>
 #include "main.h"
@@ -950,6 +949,12 @@ void send_SW_Mode()
 void send_SW_Timer()
 {
   wsSendTimer(swTime, timeLapsUsed, timeLaps);
+} // end of function
+
+// ---------------------------------------------------------------------------------------------------------
+void send_Admin()
+{
+  wsSendAdmin(localAddress, incomingRSSI, incomingSNR, swRoundtrip);
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------

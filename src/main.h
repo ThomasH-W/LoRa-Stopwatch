@@ -7,6 +7,8 @@
 #include "Arduino.h"
 #include <StopWatch.h>
 
+#define FIRMWARE_VERSION "0.9"
+
 // #include "FS.h"
 // #include "LITTLEFS.h" //this needs to be first, or it all crashes and burns...
 #define FORMAT_LITTLEFS_IF_FAILED true
@@ -145,5 +147,6 @@ void send_SW_Mode();
 void send_SW_Timer();
 void wsSendMode(int sys_mode, int sw_mode);
 void wsSendTimer(unsigned int sw_timer, unsigned int timerUsed, unsigned int timeLaps[]);
+void wsSendAdmin(byte localAddress, int incomingRSSI, float incomingSNR, unsigned int swRoundtrip);
 
 #endif

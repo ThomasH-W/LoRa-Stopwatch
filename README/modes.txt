@@ -22,8 +22,13 @@ Order of operation in mode SYS_STARTLOOP
     sys_mode=0          // [system_mode]
     sw_mode=0           // [stopwatch_mode]
     sw_timer=1234       // main timer in ms
-    sw_laps_used=2      // numbers of laps recorded
+    sw_laps_used=4      // numbers of laps recorded
     timer=50,1870,3570,6007,0,0,0,0,0,0 // time of laps
+    admin_firmware=1.3  // firmware version
+    admin_deviceID=2F   // ID of this modules transmitted in LoRa messages
+    admin_RSSI=-46      // LoRa signal strength
+    admin_SNR=2.3       // LoRa signal quality
+    admin_roundtrip=81  // LoRa roundtrip in ms
 */
 enum system_modes
 {
