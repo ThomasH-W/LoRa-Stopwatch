@@ -20,7 +20,7 @@ Order of operation in mode SYS_STARTLOOP
 /*
   WiFi / Websocket
     sys_mode=0          // [system_mode]
-    sw_mode=0           // [system_mode]
+    sw_mode=0           // [stopwatch_mode]
     sw_timer=1234       // main timer in ms
     sw_laps_used=2      // numbers of laps recorded
     timer=50,1870,3570,6007,0,0,0,0,0,0 // time of laps
