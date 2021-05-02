@@ -12,6 +12,7 @@
  *     https://github.com/evert-arias/EasyBuzzer
  *
  * ToDo:
+ *  remove sending count at startup
  *  roundtrip with 3+ devices
  *  add gates
  *  define maximium run time, e.g. 15min

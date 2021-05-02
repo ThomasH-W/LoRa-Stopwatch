@@ -99,7 +99,7 @@ void wsSendAdmin(byte localAddress, int incomingRSSI, float incomingSNR, unsigne
 void wsBroadcast()
 {
     send_SW_Mode();
-    send_SW_Count();
+    // send_SW_Count();
     send_SW_Timer();
     send_Admin();
 } // end of function
