@@ -57,8 +57,11 @@ void wsSendTimer(unsigned int sw_timer, unsigned int timerUsed, unsigned int tim
 {
     char buf[100];
     char buf2[20];
-    Serial.printf("wifi::wsSendTimer> timer %u, laps: %u\ntimer 1 %u\ntimer 2 %u\ntimer 3 %u\n",
-                  sw_timer, timerUsed, timeLaps[0], timeLaps[1], timeLaps[2]);
+    Serial.printf("wifi::wsSendTimer> timer %u, %u laps\n", sw_timer, timerUsed);
+    for (int i = 0; i < timerUsed; i++)
+    {
+        Serial.printf("timer %d: %u\n", i + 1, timeLaps[i]);
+    }
 
     ws.printfAll_P("sw_timer=%u", sw_timer);
     ws.printfAll_P("sw_laps_used=%u", timerUsed);

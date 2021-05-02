@@ -12,7 +12,7 @@
  *     https://github.com/evert-arias/EasyBuzzer
  *
  * ToDo:
- *  remove sending count at startup
+ *  swTime < lap time
  *  roundtrip with 3+ devices
  *  add gates
  *  define maximium run time, e.g. 15min
@@ -256,6 +256,7 @@ void sw_lap()
   unsigned int sw_time_lap;
 
   sw_time_lap = timerStopWatch.elapsed();
+  swTime = sw_time_lap;
   if (timerRemoteStart == true)
   {
     Serial.printf("sw_lap> timer started remotely. timer %u - %u", sw_time_lap, timerRemoteOffset);
