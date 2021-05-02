@@ -1,20 +1,20 @@
-import SWWatch from "./component/SWWatch.js";
-import SWTime from "./component/SWTime.js";
+import SWWatch from './component/SWWatch.js';
+import SWTime from './component/SWTime.js';
 
-import { default as ESPWSConnector, SW_MODE } from "./ESPWSConnector.js";
+import { default as ESPWSConnector, SW_MODE } from './ESPWSConnector.js';
 
 let connectorOptions = {};
 connectorOptions.wsUrl =
-  new URLSearchParams(window.location.search).get("wsUrl") || undefined;
+  new URLSearchParams(window.location.search).get('wsUrl') || undefined;
 
 console.log(connectorOptions);
 
 const espConnector = new ESPWSConnector(connectorOptions);
 
-const startStopResetButton = document.querySelector("#startStopReset");
-startStopResetButton.setAttribute("targetMode", SW_MODE.COUNTDOWN);
-startStopResetButton.addEventListener("click", () => {
-  const targetMode = parseInt(startStopResetButton.getAttribute("targetMode"));
+const startStopResetButton = document.querySelector('#startStopReset');
+startStopResetButton.setAttribute('targetMode', SW_MODE.COUNTDOWN);
+startStopResetButton.addEventListener('click', () => {
+  const targetMode = parseInt(startStopResetButton.getAttribute('targetMode'));
   console.log(targetMode == SW_MODE.COUNTDOWN);
   switch (targetMode) {
     case SW_MODE.COUNTDOWN:
@@ -29,19 +29,19 @@ startStopResetButton.addEventListener("click", () => {
   }
 });
 
-const lapButton = document.querySelector("#lap");
-lapButton.addEventListener("click", () => {
+const lapButton = document.querySelector('#lap');
+lapButton.addEventListener('click', () => {
   if (swWatch.running) {
     espConnector.swLap();
   }
 });
 
-const lapTimesList = document.querySelector("#lapTimes");
+const lapTimesList = document.querySelector('#lapTimes');
 
 /**
  * @type {SWWatch}
  */
-const swWatch = document.querySelector("sw-watch");
+const swWatch = document.querySelector('sw-watch');
 
 function onSWModeChange(mode) {
   // Update Stopwatch
@@ -49,8 +49,8 @@ function onSWModeChange(mode) {
     case SW_MODE.RUNNING:
       if (!swWatch.running) {
         swWatch.start();
-        startStopResetButton.setAttribute("targetMode", SW_MODE.STOP);
-        startStopResetButton.innerText = "Stop";
+        startStopResetButton.setAttribute('targetMode', SW_MODE.STOP);
+        startStopResetButton.innerText = 'Stop';
         lapButton.disabled = false;
       }
       break;
@@ -60,8 +60,8 @@ function onSWModeChange(mode) {
       break;
     case SW_MODE.IDLE:
       swWatch.stop();
-      startStopResetButton.setAttribute("targetMode", SW_MODE.RUNNING);
-      startStopResetButton.innerText = "Start";
+      startStopResetButton.setAttribute('targetMode', SW_MODE.COUNTDOWN);
+      startStopResetButton.innerText = 'Start';
       lapButton.disabled = true;
       break;
     case SW_MODE.COUNTDOWN:
@@ -70,22 +70,22 @@ function onSWModeChange(mode) {
     case SW_MODE.RESET:
       if (swWatch.running) {
         swWatch.stop();
-        startStopResetButton.setAttribute("targetMode", SW_MODE.RESET);
-        startStopResetButton.innerText = "Reset";
-        lapButton.disabled = true;
       }
+      startStopResetButton.setAttribute('targetMode', SW_MODE.RESET);
+      startStopResetButton.innerText = 'Reset';
+      lapButton.disabled = true;
       break;
   }
 
-  if (mode == SW_MODE.RESET) {
+  if (mode == SW_MODE.IDLE) {
     swWatch.reset();
     lapButton.disabled = true;
   }
 }
 
 function onLapTimesUpdate(lapTimes) {
-  console.log(lapTimes)
-  lapTimesList.innerHTML = "";
+  console.log(lapTimes);
+  lapTimesList.innerHTML = '';
   for (const lapTime of lapTimes) {
     const newSWTime = new SWTime();
     newSWTime.time = lapTime;

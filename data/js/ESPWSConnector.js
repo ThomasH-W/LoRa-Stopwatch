@@ -48,7 +48,7 @@ export default class ESPWSConnector {
   _sw_mode;
   _sw_laps_used;
   _lap_times;
-  _admin;
+  _admin = {};
 
   constructor({ wsUrl = `ws://${window.location.host}` } = {}) {
     this._wsUrl = wsUrl;
@@ -57,9 +57,9 @@ export default class ESPWSConnector {
   connect() {
     return new Promise((res) => {
       this._ws = new WebSocket(this._wsUrl);
-      this._ws.addEventListener("message", (msg) => this.onMessage(msg.data));
-      this._ws.addEventListener("open", res);
-      this._ws.addEventListener("error", (e) => this.onError(e));
+      this._ws.addEventListener('message', (msg) => this.onMessage(msg.data));
+      this._ws.addEventListener('open', res);
+      this._ws.addEventListener('error', (e) => this.onError(e));
     });
   }
 
@@ -76,22 +76,22 @@ export default class ESPWSConnector {
   }
 
   onMessage(msg) {
-    console.log("Recieved:", msg);
-    const commands = msg.split(";");
+    console.log('Recieved:', msg);
+    const commands = msg.split(';').map((s) => s.trim());
     for (const command of commands) {
-      const [cmdName, ...argParts] = command.split("=");
-      const cmdArgs = argParts.join("=");
+      const [cmdName, ...argParts] = command.split('=');
+      const cmdArgs = argParts.join('=');
       this.handleCommand(cmdName, cmdArgs);
     }
   }
 
   handleCommand(cmd, args) {
-    console.log("Hadnling Command", {
+    console.log('Hadnling Command', {
       cmd,
       args,
     });
     switch (cmd) {
-      case "sw_mode":
+      case 'sw_mode':
         switch (parseInt(args)) {
           case SYS_MODE.LAP:
           case SYS_MODE.PING:
@@ -104,51 +104,51 @@ export default class ESPWSConnector {
             }
         }
         break;
-      case "sys_mode":
+      case 'sys_mode':
         this._sys_mode = parseInt(args);
         if (this.onSysModeChange) {
           this.onSysModeChange(this._sys_mode);
         }
         break;
-      case "sw_timer":
+      case 'sw_timer':
         if (this.onSWTimerUpdate) {
           this.onSWTimerUpdate(parseInt(args));
         }
         break;
-      case "sw_laps_used":
+      case 'sw_laps_used':
         this._sw_laps_used = parseInt(args);
         break;
-      case "timer":
-        console.log(args.split(","));
+      case 'timer':
+        console.log(args.split(','));
         this._lap_times = args
-          .split(",")
+          .split(',')
           .map((t) => parseInt(t))
           .filter((t) => t != 0)
           .reverse();
         this.onLapTimesUpdate(this._lap_times);
         break;
-      case "admin_firmware":
+      case 'admin_firmware':
         this._admin.firmware = args;
         break;
-      case "admin_deviceID":
+      case 'admin_deviceID':
         this._admin.deviceID = args;
         break;
-      case "admin_RSSI":
+      case 'admin_RSSI':
         this._admin.RSSI = args;
         break;
-      case "admin_SNR":
+      case 'admin_SNR':
         this._admin.SNR = args;
         break;
-      case "admin_roundtrip":
+      case 'admin_roundtrip':
         this._admin.roundtrip = args;
         break;
       default:
-        console.log("Unknown Command!");
+        console.log('Unknown Command!');
     }
   }
 
   send(msg) {
-    console.log("Sending", msg);
+    console.log('Sending', msg);
     this._ws.send(msg);
   }
 
