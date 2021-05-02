@@ -91,17 +91,15 @@ function onSWModeChange(mode) {
 }
 
 function onLapTimesUpdate(lapTimes) {
-  console.log(lapTimes);
+  swWatch.lastLap = lapTimes[0] || 0;
   lapTimesList.innerHTML = "";
   for (let i = 0; i < lapTimes.length; i++) {
     lapTimesList.innerHTML += `
       <tr>
-        <td>${i + 1}</td>
-        <td>${
-          i > 0
-            ? "<sw-time time=" + (lapTimes[i] - lapTimes[i - 1]) + "></sw-time>"
-            : ""
-        }</td>
+        <td>${lapTimes.length - i}</td>
+        <td><sw-time time="${
+          i + 1 < lapTimes.length ? lapTimes[i] - lapTimes[i + 1] : lapTimes[i]
+        }"></sw-time></td>
         <td><sw-time time="${lapTimes[i]}"></sw-time></td>
       </tr>
     `;

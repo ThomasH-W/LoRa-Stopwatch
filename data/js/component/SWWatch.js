@@ -21,7 +21,7 @@ swWatchTemplate.innerHTML = `
     }
     
     sw-time {
-      font-size: 4em;
+      font-size: 3em;
       z-index: 0;
       transition: filter .1s;
       text-align: center;
@@ -82,7 +82,7 @@ swWatchTemplate.innerHTML = `
 
     #currentLap {
       grid-area: current;
-      font-size: 3em;
+      font-size: 2em;
       color: #aaa;
     }
   </style>
@@ -172,11 +172,13 @@ export default class SWWatch extends HTMLElement {
   reset() {
     this.running = false;
     this._time = 0;
+    this.lastLap = 0;
     this.updateUI(); // Update once to reflect 0 in UI
   }
 
   updateUI() {
-    this.shadowRoot.querySelector("sw-time").time = this._time;
+    this.shadowRoot.querySelector("sw-time#total").time = this._time;
+    this.shadowRoot.querySelector("sw-time#currentLap").time = this._time - this.lastLap;
     this.style.setProperty("--minute-progress", (this._time / 60000) % 1);
   }
 
