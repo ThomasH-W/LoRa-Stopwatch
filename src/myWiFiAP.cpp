@@ -2,12 +2,8 @@
  * file   : myWiFi.cpp
  * date   : 2021-05-01
  * 
- * Buttons
- * - Start/Stop/Reset
- * - Mode/Lap
- * Timer
- *   Main
- *   Lap 1...10
+ * https://github.com/me-no-dev/ESPAsyncWebServer
+ * https://github.com/me-no-dev/ESPAsyncWebServer/blob/master/examples/ESP_AsyncFSBrowser/ESP_AsyncFSBrowser.ino
  * 
 */
 #include <Arduino.h>
@@ -26,7 +22,10 @@
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <DNSServer.h>
+IPAddress apIP(192, 168, 4, 1);
 AsyncWebServer webServer(80);
+AsyncEventSource events("/events");
 AsyncWebSocket ws("/");
 AsyncWebSocketClient *globalClient = NULL;
 
@@ -37,6 +36,11 @@ const char *password = "12345678";
 // Assign output variables to GPIO pins
 const int output26 = 36;
 const int output27 = 37;
+
+unsigned long dnsPreviousMillis = 0;
+unsigned int dnsInterval = 2000;
+const byte DNS_PORT = 53;
+DNSServer dnsServer;
 
 // --------------------------------------------------------------------------
 // websocket - send modes for system and stopwtach - see main.h
@@ -147,6 +151,44 @@ void handleNotFound(AsyncWebServerRequest *request)
     request->send(404, "text/plain", message);
 } // end of function
 
+// --------------------------------------------------------------------------
+class CaptiveRequestHandler : public AsyncWebHandler
+{
+public:
+    CaptiveRequestHandler() {}
+    virtual ~CaptiveRequestHandler() {}
+
+    bool canHandle(AsyncWebServerRequest *request)
+    {
+        //request->addInterestingHeader("ANY");
+        return true;
+    }
+
+    void handleRequest(AsyncWebServerRequest *request)
+    {
+        /*
+        AsyncResponseStream *response = request->beginResponseStream("text/html");
+        response->print("<!DOCTYPE html><html><head><title>Captive Portal</title></head><body>");
+        response->print("<p>This is out captive portal front page.</p>");
+        response->printf("<p>You were trying to reach: http://%s%s</p>", request->host().c_str(), request->url().c_str());
+        response->printf("<p>Try opening <a href='http://%s'>this link</a> instead</p>", WiFi.softAPIP().toString().c_str());
+        response->print("</body></html>");
+        request->send(response);
+*/
+        if (LITTLEFS.exists("/index.html"))
+        {
+            // Serial.println("index.html exists!");
+            AsyncResponseStream *response = request->beginResponseStream("text/html");
+            File file = LITTLEFS.open("/index.html");
+            while (file.available())
+                response->write(file.read());
+            request->send(response);
+        }
+        else
+            request->send(404);
+    }
+};
+
 // ---------------------------------------------------------------------------------------------------------
 // register the web server - no call in loop required
 void setup_webserver()
@@ -161,6 +203,13 @@ void setup_webserver()
         Serial.println(F("fail."));
     }
 
+    webServer.serveStatic("/", LITTLEFS, "/").setCacheControl("max-age=600");
+
+    webServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+        request->redirect("/index.html");
+        delay(100);
+    });
+
     webServer.on("/inline", [](AsyncWebServerRequest *request) {
         request->send(200, "text/plain", "this works as well");
     });
@@ -170,6 +219,11 @@ void setup_webserver()
 
     ws.onEvent(onWsEvent);
     webServer.addHandler(&ws);
+
+    events.onConnect([](AsyncEventSourceClient *client) {
+        client->send("hello!", NULL, millis(), 1000);
+    });
+    webServer.addHandler(&events);
 
     webServer.begin();
     Serial.println("HTTP server started");
@@ -191,10 +245,30 @@ void setup_WiFiAP(uint32_t curMAC)
     Serial.print("AP IP address: ");
     Serial.println(IP);
 
+    dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+    dnsServer.start(DNS_PORT, "*", apIP);
+    webServer.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER); //only when requested from AP
+
     setup_webserver();
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
+// [E][vfs_api.cpp:64] open(): /littlefs/hotspot-detect.html does not exist
 void WiFiAP_loop()
 {
+    dnsServer.processNextRequest();
+    ws.cleanupClients();
+    /*
+    unsigned long currentMillis = millis();
+    int clients = WiFi.softAPgetStationNum();
+
+    if (currentMillis - dnsPreviousMillis >= dnsInterval)
+    {
+        dnsPreviousMillis = currentMillis;
+        if (clients >= 1)
+        {
+            Serial.printf("WiFiAP_loop> Stations connected = %d\n", clients);
+        }
+    }
+    */
 }
