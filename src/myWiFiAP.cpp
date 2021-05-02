@@ -144,25 +144,46 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
                 // okay since command is \0 terminated
                 uint8_t trgt_mode = atoi(command + strlen("sw_mode="));
                 Serial.printf("onWsEvent> set mode to %d\n", trgt_mode);
-                if (trgt_mode == SW_COUNTDOWN) // 1
+                if (mySysMode() == SYS_STOPWATCH)
                 {
-                    sendMessage(SW_COUNTDOWN, SYS_STOPWATCH, "Start");
-                    sw_start();
+                    if (trgt_mode == SW_COUNTDOWN) // 1
+                    {
+                        sendMessage(SW_COUNTDOWN, SYS_STOPWATCH, "Start");
+                        sw_start();
+                    }
+                    else if (trgt_mode == SW_STOP) // 5
+                    {
+                        sendMessage(SW_STOP, SYS_STOPWATCH, "Stop");
+                        sw_stop();
+                    }
+                    else if (trgt_mode == SW_RESET) // 6
+                    {
+                        sendMessage(SW_RESET, SYS_STOPWATCH, "Reset");
+                        sw_reset();
+                    }
+                    else if (trgt_mode == SW_LAP) // 4
+                    {
+                        sendMessage(SW_LAP, SYS_STOPWATCH, "Lap");
+                        sw_lap();
+                    }
                 }
-                else if (trgt_mode == SW_STOP) // 5
+                else if (mySysMode() == SYS_STARTLOOP)
                 {
-                    sendMessage(SW_STOP, SYS_STOPWATCH, "Stop");
-                    sw_stop();
-                }
-                else if (trgt_mode == SW_RESET) // 6
-                {
-                    sendMessage(SW_RESET, SYS_STOPWATCH, "Reset");
-                    sw_reset();
-                }
-                else if (trgt_mode == SW_LAP) // 4
-                {
-                    sendMessage(SW_LAP, SYS_STOPWATCH, "Lap");
-                    sw_lap();
+                    if (trgt_mode == SW_COUNTDOWN) // 1
+                    {
+                        sendMessage(SW_COUNTDOWN, SYS_STARTLOOP, "Start");
+                        sw_start();
+                    }
+                    else if (trgt_mode == SW_STOP) // 5
+                    {
+                        sendMessage(SW_STOP, SYS_STARTLOOP, "Stop");
+                        sw_stop();
+                    }
+                    else if (trgt_mode == SW_RESET) // 6
+                    {
+                        sendMessage(SW_RESET, SYS_STARTLOOP, "Reset");
+                        sw_reset();
+                    }
                 }
             }
         }

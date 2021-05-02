@@ -129,6 +129,12 @@ unsigned int frequencyMid = 400;
 unsigned int duration = 200;
 
 // ---------------------------------------------------------------------------------------------------------
+system_modes mySysMode()
+{
+  return sys_mode;
+} // end of function
+
+// ---------------------------------------------------------------------------------------------------------
 void ws_SysMode(system_modes wsSysMode)
 {
   if (wsSysMode != sys_mode) // if mode is different, switch this module
@@ -370,8 +376,10 @@ void stopwatchLoop()
       else if (sys_mode == SYS_STARTLOOP) //system in continous loop mode
       {
         Serial.printf("stopwatchLoop> loop timerCountdown elapsed %d, mode=%d %s\n", timerCountdown.elapsed(), sys_mode, sys_mode_name[sys_mode]);
+        send_SW_Count();
         timerCountdown.reset();
         delay(2000); // pause for 2sec
+        send_SW_Count();
         sw_start();
       }
     }
