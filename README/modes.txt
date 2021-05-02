@@ -5,7 +5,8 @@
 Order of operation in mode SYS_STOPWATCH
     SW_IDLE         -> [btn1:start] -> SW_COUNTDOWN
     SW_STOP         -> [btn1:start] -> SW_RESET + [btn1=stop]
-    SW_COUNTDOWN    -> [btn1:stop]  -> SW_RESET + [btn1=start]
+    SW_COUNTDOWN    -> [btn1:stop]  -> SW_RESET + [btn1=start] + [btn2=mode]
+    SW_COUNTDOWN    -> [countdown expired]  -> SW_RUNNING + [btn2=lap]
     SW_RUNNING      -> [btn1:stop]  -> SW_RESET + [btn1=reset]
     SW_RESET        -> [btn1:reset] -> SW_IDLE + [btn1=start]
     SW_FALSESTART   -> [btn1:stop]  -> SW_RESET + [btn1=reset]
