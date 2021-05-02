@@ -15,6 +15,8 @@
  *  start WiFi AP
  *        if no impact, add web page: Start/Stop/Mode, LAPs 1...10
  *  reset - mode: show 2 laps (big)
+ *  websocket ping/roundtrip
+ *  roundtrip with 3+ devices
  *  solve timer difference of remote module
  *  show 1 digits  ms
  *  battery monitor
