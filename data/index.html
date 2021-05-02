@@ -1,19 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LoRa Stopwatch</title>
-  <script src="./js/main.js" type="module"></script>
-  <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-  <sw-watch></sw-watch>
-  <button id="startStopReset" disabled>Start</button>
-  <button id="lap" disabled>Lap</button>
-
-  <ol reversed id="lapTimes">
-  </ol>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LoRa Stopwatch</title>
+    <script src="./js/main.js" type="module"></script>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header>
+      <div id="sys_info">
+        <span>Frw: <span id="sys_info__firmware">-</span></span>
+        <span>ID: <span id="sys_info__id">-</span></span>
+        <span>RSSI: <span id="sys_info__rssi">-</span></span>
+        <span>SNR: <span id="sys_info__snr">-</span></span>
+        <span>Ping: <span id="sys_info__ping">-</span></span>
+      </div>
+    </header>
+    <select id="sys_mode_select">
+      <option value=0>Stopwatch</option>
+      <option value=1>Startloop</option>
+      <option value=2>Admin</option>
+    </select>
+    <main>
+      <div id="lapTimeWrapper">
+        <table reversed id="lapTimes">
+          <tbody>
+          </tbody>
+        </table>
+      </div>
+      <sw-watch></sw-watch>
+      <button id="startStopReset" disabled>Start</button>
+      <button id="lap" disabled>Lap</button>
+    </main>
+  </body>
 </html>

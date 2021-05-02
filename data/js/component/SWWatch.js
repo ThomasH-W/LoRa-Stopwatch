@@ -4,23 +4,27 @@ const swWatchTemplate = document.createElement("template");
 swWatchTemplate.innerHTML = `
   <style>
     :host {
-      font-family: Calibri;
       width: 20rem;
       height: 20rem;
       display: grid;
+      grid-template-rows: 1fr auto auto 1fr;
+      grid-template-areas: "." "total" "current" ".";
       align-items: center;
       justify-content: center;
       color: #fff;
-      background: radial-gradient(#111 68%, transparent 0), conic-gradient(#a00, #a00 calc(var(--minute-progress, 0) * 360deg), transparent 0deg), #111;
+      background: radial-gradient(#111 50%, transparent 70%), conic-gradient(#a00, #a00 calc(var(--minute-progress, 0) * 360deg), transparent 0deg), #111;
       border-radius: 50%;
       font-variant-numeric: tabular-nums;
-      font-size: 3rem;
       position: relative;
       overflow: hidden;
+      gap: 1rem;
     }
-
+    
     sw-time {
+      font-size: 4em;
       z-index: 0;
+      transition: filter .1s;
+      text-align: center;
     }
 
     #redRing {
@@ -52,11 +56,42 @@ swWatchTemplate.innerHTML = `
       width: 1%;
       transform: translateX(-50%) rotate(var(--rotation)) translateY(100%) translateY(-5%);
     }
+
+    :host([countdown]) sw-time {
+      filter: blur(1rem);
+    }
+
+    #countdown {
+      position: absolute;
+      left: 50%;
+      font-size: 12em;
+      transform: translate(-50%);
+      opacity: 0;
+      filter: blur(1rem);
+      transition: opacity .1s filter .1s;
+    }
+
+    :host([countdown]) #countdown {
+      opacity: 1;
+      filter: blur(0);
+    }
+
+    #total {
+      grid-area: total;
+    }
+
+    #currentLap {
+      grid-area: current;
+      font-size: 3em;
+      color: #aaa;
+    }
   </style>
   <!--<div id="redRing"></div>-->
   <div id="tenMinuteMarkers"></div>
   <div id="minuteMarkers"></div>
-  <sw-time time=0></sw-time>
+  <div id="countdown">10</div>
+  <sw-time id="total" time=0></sw-time>
+  <sw-time id="currentLap" time=0></sw-time>
 `;
 
 const minuteMarkers = swWatchTemplate.content.querySelector("#minuteMarkers");
@@ -77,11 +112,12 @@ for (let i = 0; i < 12; i++) {
 
 export default class SWWatch extends HTMLElement {
   static get observedAttributes() {
-    return ["running"];
+    return ["running", "countdown"];
   }
 
   _start = 0;
   _time = 0;
+  lastLap = 0;
 
   constructor() {
     // Always call super first in constructor
@@ -103,8 +139,25 @@ export default class SWWatch extends HTMLElement {
     return this.hasAttribute("running");
   }
 
+  get countdown() {
+    return parseInt(this.getAttribute("countdown") || 0);
+  }
+
+  set countdown(value) {
+    if(value > 0){
+      this.setAttribute("countdown", value);
+    } else {
+      this.removeAttribute("countdown");
+    }
+  }
+
   get time() {
     return this._time;
+  }
+
+  set time(value) {
+    this._start += value - this.time;
+    this._time = value;
   }
 
   start() {
@@ -136,6 +189,10 @@ export default class SWWatch extends HTMLElement {
   }
 
   update() {
+    const countdown = this.countdown;
+    if(countdown) {
+      this.shadowRoot.querySelector("#countdown").innerText = countdown;
+    }
     if (this.running) {
       requestAnimationFrame((_) => this.rafLoop());
     }
@@ -145,6 +202,7 @@ export default class SWWatch extends HTMLElement {
     // When the drawer is disabled, update keyboard/screen reader behavior.
     switch (name) {
       case "running":
+      case "countdown":
         this.update();
         break;
     }

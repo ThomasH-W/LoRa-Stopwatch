@@ -1,4 +1,104 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 body {
   background-color: #333;
   color: #fff;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+}
+
+header {
+  background: #633;
+  padding: .5rem;
+}
+
+#sys_info {
+  display: flex;
+  justify-content: space-between;
+}
+
+main {
+  height: 100%;
+  display: grid;
+  gap: 4rem 0;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr min(66vw, 50vh) auto;
+  grid-template-areas: "lapTimes lapTimes" "watch watch" "startStopReset lap";
+}
+
+#sys_mode_select {
+  font-size: 1.5rem;
+  padding: .5rem;
+  background: #644;
+  color: #fff;
+  border: none;
+}
+
+#lapTimeWrapper {
+  grid-area: lapTimes;
+  overflow: auto;
+  position: relative;
+  padding: .5rem;
+}
+
+#lapTimeWrapper:after {
+  position: sticky;
+  bottom: 0;
+  content: "";
+  display: block;
+  height: 3rem;
+  background: linear-gradient(to bottom, transparent, #333);
+}
+
+#lapTimes {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+#lapTimes td {
+  font-size: 1.5rem;
+  text-align: center;
+  border-top: 0.1rem solid #aaa;
+  padding: .5rem;
+}
+#lapTimes tr:first-child td {
+  border: none;
+}
+
+sw-watch {
+  grid-area: watch;
+  width: min(66vw, 50vh);
+  height: min(66vw, 50vh);
+  font-size: min(3vw, 2vh);
+  margin: auto;
+  box-shadow: 0 0 3rem #000a;
+}
+
+#startStopReset {
+  grid-area: startStopReset;
+}
+
+#lap {
+  grid-area: lap;
+}
+
+#startStopReset,
+#lap {
+  height: 5rem;
+  font-size: 3rem;
+  border: none;
+  background: #633;
+  color: #fff;
+}
+
+#startStopReset:disabled,
+#lap:disabled {
+  background: #544;
+  color: #888;
 }

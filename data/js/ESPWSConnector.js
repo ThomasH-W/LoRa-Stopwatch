@@ -32,6 +32,11 @@ export default class ESPWSConnector {
   /**
    * @type {Number => Any}
    */
+  onSWCountdownUpdate;
+
+  /**
+   * @type {Number => Any}
+   */
   onLapTimesUpdate;
 
   /**
@@ -43,6 +48,11 @@ export default class ESPWSConnector {
    * @type {Number => Any}
    */
   onSysModeChange;
+
+  /**
+   * @type {Object => Any}
+   */
+  onAdminInfoUpdate;
 
   _sys_mode;
   _sw_mode;
@@ -115,6 +125,11 @@ export default class ESPWSConnector {
           this.onSWTimerUpdate(parseInt(args));
         }
         break;
+      case 'sw_count':
+        if (this.onSWCountdownUpdate) {
+          this.onSWCountdownUpdate(parseInt(args));
+        }
+        break;
       case 'sw_laps_used':
         this._sw_laps_used = parseInt(args);
         break;
@@ -129,18 +144,33 @@ export default class ESPWSConnector {
         break;
       case 'admin_firmware':
         this._admin.firmware = args;
+        if (this.onAdminInfoUpdate) {
+          this.onAdminInfoUpdate(this._admin);
+        }
         break;
       case 'admin_deviceID':
         this._admin.deviceID = args;
+        if (this.onAdminInfoUpdate) {
+          this.onAdminInfoUpdate(this._admin);
+        }
         break;
       case 'admin_RSSI':
         this._admin.RSSI = args;
+        if (this.onAdminInfoUpdate) {
+          this.onAdminInfoUpdate(this._admin);
+        }
         break;
       case 'admin_SNR':
         this._admin.SNR = args;
+        if (this.onAdminInfoUpdate) {
+          this.onAdminInfoUpdate(this._admin);
+        }
         break;
       case 'admin_roundtrip':
         this._admin.roundtrip = args;
+        if (this.onAdminInfoUpdate) {
+          this.onAdminInfoUpdate(this._admin);
+        }
         break;
       default:
         console.log('Unknown Command!');

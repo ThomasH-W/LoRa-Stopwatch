@@ -27,13 +27,26 @@ export default class SWTime extends HTMLElement {
   }
 
   update() {
-    let time = this.time;
-    const hundreds = Math.floor(time/10) % 100 + ""
-    const seconds = Math.floor(time/1000) % 60 + ""
-    const minutes = Math.floor(time/60000) + ""
-    this.shadowRoot.getElementById("hundreds").innerText = hundreds.padStart(2, '0');
-    this.shadowRoot.getElementById("seconds").innerText = seconds.padStart(2, '0');
-    this.shadowRoot.getElementById("minutes").innerText = minutes.padStart(2, '0');
+    let hundreds = "--";
+    let seconds = "--";
+    let minutes = "--";
+    if (this.time != 0) {
+      hundreds = (Math.floor(this.time / 10) % 100) + "";
+      seconds = (Math.floor(this.time / 1000) % 60) + "";
+      minutes = Math.floor(this.time / 60000) + "";
+    }
+    this.shadowRoot.getElementById("hundreds").innerText = hundreds.padStart(
+      2,
+      "0"
+    );
+    this.shadowRoot.getElementById("seconds").innerText = seconds.padStart(
+      2,
+      "0"
+    );
+    this.shadowRoot.getElementById("minutes").innerText = minutes.padStart(
+      2,
+      "0"
+    );
   }
 
   attributeChangedCallback(name, newValue) {
