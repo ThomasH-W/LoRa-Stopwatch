@@ -7,17 +7,13 @@
  * https://github.com/sandeepmistry/arduino-LoRa/blob/master/examples/LoRaDuplexCallback/LoRaDuplexCallback.ino
  * https://github.com/alexantoniades/encrypted-lora-gateway/blob/master/Encrypted_LoRa_Gateway.ino
  * 
- * lip_deps = 
- *    sandeepmistry/LoRa
- *     https://github.com/evert-arias/EasyBuzzer
  *
  * ToDo:
  *  swTime < lap time
  *  roundtrip with 3+ devices
- *  add gates
  *  define maximium run time, e.g. 15min
  *  define max countdown loops ?
- *  config file with wifi password
+ *  config file with wifi
  *  solve timer difference of remote module
  *  show 1 digits  ms
  *  battery monitor
@@ -27,9 +23,15 @@
 #include "main.h"
 #include "GPIO_PINS.h"
 
+module_modes mod_mode = MOD_BASIC; // define type of module: Basic, Start, Finish, Lap
+
 //Libraries for Lora
 #include <SPI.h> // include libraries
 #include <LoRa.h>
+
+#include "Preferences.h"
+Preferences myPreferences; // create an instance of Preferences library
+
 byte incomingSwMode;  // incoming stopwatch mode
 byte incomingSysMode; // incoming system mode
 byte outgoingSwMode;  // incoming stopwatch mode
@@ -58,7 +60,6 @@ String outgoing; // outgoing message
 String plaintext = outgoing;
 
 #include <StopWatch.h>
-
 StopWatch timerStopWatch, timerCountdown, timerPing, MyDeepSleep;
 
 #define COUNTDOWN_STEPS 5
@@ -67,6 +68,12 @@ unsigned int swTime = 0, swPong = 0, swRoundtrip = 0;
 
 unsigned int timeLaps[TIME_LAPS_MAX]; // store elapsed time
 unsigned int timeLapsUsed = 0;
+
+bool lightBarrierActive = false;
+const char mod_mode_name[4][10] = {"basic",  // 0 - no trigger function
+                                   "start",  // 1 - light barrier at start, will detect falsestart
+                                   "finish", // 2 - light barrier at finish, will stop watch
+                                   "lap"};   // 3 - light barrier at finish, will detect laps
 
 system_modes sys_mode = SYS_STOPWATCH, sys_mode_old = SYS_BOOT, sys_mode_received;
 const char sys_mode_name[4][10] = {"single", // 0 SYS_STOPWATCH
@@ -129,6 +136,47 @@ unsigned int frequencyLow = 641;
 unsigned int frequencyMid = 400;
 unsigned int duration = 200;
 
+// https://github.com/jandelgado/jled
+#include <jled.h>
+auto ledRun = JLed(PIN_LED_RUN).Blink(1000, 500).Forever(); // PIN_LED_RUN
+auto ledGate = JLed(PIN_LED_GATE).Blink(1000, 500).Forever();
+
+int batteryLevel = 0;
+// ---------------------------------------------------------------------------------------------------------
+// fast:run, single:countdown, double: ping
+void ledRunMode(led_modes lmode)
+{
+  if (lmode == LED_ON)                               // ledGateMode(LED_ON);
+    ledRun.On();                                     // - on
+  else if (lmode == LED_OFF)                         // ledGateMode(LED_OFF);
+    ledRun.Off();                                    // - off
+  else if (lmode == LED_BREATHE)                     // ledGateMode(LED_BREATHE);
+    ledRun.Breathe(2000).DelayAfter(1000).Forever(); // - breathe
+  else if (lmode == LED_BLINK_ONCE)                  // ledGateMode(LED_BLINK_ONCE);
+    ledRun.Blink(200, 200).Repeat(1);                // - blink
+  else if (lmode == LED_BLINK_DOUBLE)                // ledGateMode(LED_BLINK_DOUBLE);
+    ledRun.Blink(100, 100).Repeat(2);                // - blink
+  else if (lmode == LED_BLINK_FAST)                  // ledGateMode(LED_BLINK_FAST);
+    ledRun.Blink(200, 200).Forever();                // - blink
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// show status of PIN_BTN_3 - light barrier
+void ledGateMode(led_modes lmode)
+{
+  if (lmode == LED_ON)                                // ledGateMode(LED_ON);
+    ledGate.On();                                     // - on
+  else if (lmode == LED_OFF)                          // ledGateMode(LED_OFF);
+    ledGate.Off();                                    // - off
+  else if (lmode == LED_BREATHE)                      // ledGateMode(LED_BREATHE);
+    ledGate.Breathe(2000).DelayAfter(1000).Forever(); // - breathe
+  else if (lmode == LED_BLINK_ONCE)                   // ledGateMode(LED_BLINK_ONCE);
+    ledGate.Blink(200, 200).Repeat(1);                // - blink
+  else if (lmode == LED_BLINK_DOUBLE)                 // ledGateMode(LED_BLINK_DOUBLE);
+    ledGate.Blink(100, 100).Repeat(2);                // - blink
+  else if (lmode == LED_BLINK_FAST)                   // ledGateMode(LED_BLINK_FAST);
+    ledGate.Blink(200, 200).Forever();                // - blink
+}
 // ---------------------------------------------------------------------------------------------------------
 system_modes mySysMode()
 {
@@ -143,6 +191,17 @@ void ws_SysMode(system_modes wsSysMode)
     Serial.printf("websocket> incoming sys mode: %d\n", wsSysMode);
     sw_reset();
     sys_mode = wsSysMode;
+  }
+} // end of function
+
+// ---------------------------------------------------------------------------------------------------------
+void ws_ModMode(module_modes wsModMode)
+{
+  if (wsModMode != mod_mode) // if mode is different, switch this module
+  {
+    Serial.printf("websocket> incoming mod mode: %d\n", wsModMode);
+    mod_mode = wsModMode;
+    save_preferences();
   }
 } // end of function
 
@@ -203,6 +262,7 @@ void loraLoop()
         break;
       case SW_FALSESTART:
         sw_mode = SW_STOP;
+        sw_stop();
         break;
       case SW_LAP:
         // Serial.println("call sw_lap");
@@ -243,9 +303,12 @@ void loraLoop()
       timerPing.start();
       swPong = 0;
       sendMessage(SW_PING, sys_mode, "ping");
+      ledGateMode(LED_BLINK_DOUBLE);
+      ledRunMode(LED_BLINK_DOUBLE);
       loraLoopTimerOld = millis(); // timestamp the message
-    }                              // if timer expired
-  }                                // if SW_IDLE
+      batteryLevel = battery_info();
+    } // if timer expired
+  }   // if SW_IDLE
 
 } // end of function
 
@@ -275,6 +338,7 @@ void sw_lap()
     Serial.printf("sw_lap> lap %u exceeded limit of %u entries\n", timeLapsUsed + 1, TIME_LAPS_MAX);
 
   send_SW_Timer(); // send timer to wifi clients
+  MyDeepSleep.reset();
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -297,6 +361,9 @@ void sw_stop()
   sw_mode = SW_RESET;
   oledUpdate = true;
   btn1_mode = BTN1_RESET;
+  lightBarrierActive = false;
+  ledGateMode(LED_OFF);
+  ledRunMode(LED_OFF);
   send_SW_Timer(); // send timer to wifi clients
   beepMid();
 } // end of function
@@ -320,6 +387,9 @@ void sw_reset()
   swTime = 0;
   btn1_mode = BTN1_START;
   btn2_mode = BTN2_MODE;
+  lightBarrierActive = false;
+  ledGateMode(LED_OFF);
+  ledRunMode(LED_OFF);
   timeLapsUsed = 0;
   for (int i = 0; i < TIME_LAPS_MAX; i++) // clear old laps
     timeLaps[i] = 0;
@@ -338,6 +408,9 @@ void sw_start()
   sw_mode = SW_COUNTDOWN;
   btn1_mode = BTN1_STOP;
   countDownStep = COUNTDOWN_STEPS;
+  lightBarrierActive = true;
+  ledGateMode(LED_BLINK_FAST);
+  MyDeepSleep.reset();
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -353,6 +426,12 @@ void sw_run()
   countDownStep = COUNTDOWN_STEPS;
   btn1_mode = BTN1_STOP;
   beepHigh();
+  ledGateMode(LED_BLINK_FAST);
+  if (mod_mode == MOD_START) // if module is at start, deactivate light barrier
+  {
+    lightBarrierActive = false;
+    ledGateMode(LED_OFF);
+  }
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -392,6 +471,7 @@ void stopwatchLoop()
       send_SW_Count();
       Serial.printf("stopwatchLoop> countdown = %d at %d\n", countDownStep, timerCountdown.elapsed());
       beepLow();
+      ledRunMode(LED_BLINK_ONCE);
 
       itoa(countDownStep, buf, 10);
       oledClearRow(3);
@@ -447,8 +527,14 @@ void nextStopwatchMode(stopwatch_modes cur_mode)
       sw_reset();
       break;
     case SW_FALSESTART:
-      sw_mode = SW_STOP;
+      sendMessage(SW_FALSESTART, sys_mode, "false start");
+      sw_mode = SW_FALSESTART;
       sw_stop();
+      break;
+    case SW_LAP:
+      sendMessage(SW_LAP, sys_mode, "lap");
+      sw_mode = SW_LAP;
+      sw_lap();
       break;
     default:
       // if nothing else matches, do the default
@@ -545,14 +631,18 @@ void oledAdmin(bool initAdmin)
   if (initAdmin == true)
   {
     oledClear();
-    oledPrint(0, 1, "Firmware");
-    oledPrint(0, 3, "  ID");
-    oledPrint(0, 4, "RSSI");
-    oledPrint(0, 5, " SNR");
-    oledPrint(0, 7, "ping");
+    oledPrint(0, 1, "    fw");
+    oledPrint(0, 2, "  type");
+    oledPrint(0, 3, "    ID");
+    oledPrint(0, 4, "  RSSI");
+    oledPrint(0, 5, "   SNR");
+    oledPrint(0, 6, "   BAT");
+    oledPrint(0, 7, "  ping");
   }
 
-  oledPrint(10, 1, FIRMWARE_VERSION);
+  oledPrint(7, 1, FIRMWARE_VERSION);
+
+  oledPrint(7, 2, mod_mode_name[mod_mode]);
 
   sprintf(buf, "%2x", localAddress);
   oledPrint(7, 3, buf);
@@ -563,8 +653,12 @@ void oledAdmin(bool initAdmin)
   sprintf(buf, "%2.1f", incomingSNR);
   oledPrint(7, 5, buf);
 
+  sprintf(buf, "%d", batteryLevel);
+  oledPrint(7, 6, buf);
+
   sprintf(buf, "%d", swRoundtrip);
   oledPrint(7, 7, buf);
+  MyDeepSleep.reset();
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -698,7 +792,8 @@ void setup_button()
   // Buttons use the built-in pull up register.
   pinMode(BUTTON1_PIN, INPUT_PULLUP);
   pinMode(BUTTON2_PIN, INPUT_PULLUP);
-  pinMode(BUTTON3_PIN, INPUT_PULLUP);
+  pinMode(BUTTON3_PIN, INPUT);
+  // pinMode(BUTTON3_PIN, INPUT_PULLUP);
 
   // Configure the ButtonConfig with the event handler, and enable all higher
   // level events.
@@ -759,7 +854,17 @@ void handleEvent(AceButton *button, uint8_t eventType, uint8_t buttonState)
     }
     else if (butPressed == BUTTON3_PIN)
     {
-      Serial.printf("handleEvent> button 3: xxxx for pin %d\n", butPressed);
+      Serial.printf("handleEvent> button 3: PRESS for pin %d\n", butPressed);
+      if (mod_mode == MOD_START && lightBarrierActive == true)
+        nextStopwatchMode(SW_FALSESTART);
+      if (mod_mode == MOD_FINISH && lightBarrierActive == true)
+        nextStopwatchMode(SW_LAP);
+    }
+    break;
+  case AceButton::kEventReleased: // kEventPressed , kEventReleased
+    if (butPressed == BUTTON3_PIN)
+    {
+      Serial.printf("handleEvent> button 3 : RELEASE for pin %d\n", butPressed);
     }
     break;
     /*
@@ -855,7 +960,7 @@ void onReceive(int packetSize)
   // if the recipient isn't this device or broadcast,
   if (recipient != localAddress && recipient != 0xFF)
   {
-    Serial.println("ERR: Lora - This message is not for me.");
+    Serial.printf("ERR: Lora - This message is not for me. Sender %u, MsgID: %u for receiver %u", sender, incomingMsgId, recipient);
     return; // skip rest of function
   }
 
@@ -971,7 +1076,7 @@ void setupBuzzer()
 // ---------------------------------------------------------------------------------------------------------
 void send_SW_Mode()
 {
-  wsSendMode(sys_mode, sw_mode);
+  wsSendMode(sys_mode, sw_mode, mod_mode);
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -991,22 +1096,52 @@ void send_SW_Count()
 {
   wsSendCountdown(countDownStep);
 } // end of function
+
+//-------------------------------------------------------------------------------------------------------------------------------------------
+// save current mode of module
+void save_preferences()
+{
+  myPreferences.begin("stopwatch", false);    /* Start a namespace "iotsharing"in Read-Write mode */
+  myPreferences.putInt("mod_mode", mod_mode); /* Store preset to the Preferences */
+  Serial.printf("save_preferences> mod_mode %d\n", mod_mode);
+  myPreferences.end(); // Close the Preferences
+} // end of function
+
+//-------------------------------------------------------------------------------------------------------------------------------------------
+// retrieve last mode of module
+// https://github.com/espressif/arduino-esp32/blob/master/libraries/Preferences/src/Preferences.h
+void setup_preferences()
+{
+  int prefMode = 0;
+
+  myPreferences.begin("stopwatch", false);
+  myPreferences.getInt("mod_mode", prefMode); /* Store preset to the Preferences */
+
+  mod_mode = (module_modes)prefMode;
+  Serial.printf("setup_preferences> mod_mode %u - %s\n", mod_mode, mod_mode_name[mod_mode]);
+
+  myPreferences.end(); // Close the Preferences
+} // end of function
+
 // ---------------------------------------------------------------------------------------------------------
 void setup()
 {
   uint32_t myMAC;
 
+  ledRunMode(LED_ON);
+  ledGateMode(LED_ON);
   // Initialize Serial Monitor
   Serial.begin(115200);
   delay(50);
   Serial.print("\n+++++++++++++++++++++++++++++++++++++++++++++++ STOPWATCH ");
   Serial.println(FIRMWARE_VERSION);
-  //while (!Serial)
-  //  ;
+
+  setup_preferences();
 
   myMAC = setup_ID(); // set sender id by using last byte from chipID
   setupBuzzer();      // assign pin to buzzer
   setup_button();     // assign buttons and register callback
+  setup_battery();    // enable ADC for battery measurement
 
   setup_oled(); // Initialise OLED Display settings
   oledPrint(0, 1, "LoRa STOPWATCH");
@@ -1022,6 +1157,9 @@ void setup()
   timerStopWatch.setResolution(StopWatch::MILLIS); // not needed, is default
   sw_reset();
   oledClear();
+
+  ledRunMode(LED_OFF);
+  ledGateMode(LED_OFF);
 
 } // end of function
 
@@ -1040,7 +1178,8 @@ void loop()
   EasyBuzzer.update();                  // play buzzer if reuqested
   deepSleepLoop(sw_mode, &MyDeepSleep); // check if device should go into sleep
 
+  // ledRun.Update(); // lora roundtrip impacted by 30 ms
+  // ledGate.Update();
   WiFiAP_loop();
-  yield(); // not sure if this is required
 
 } // end of function

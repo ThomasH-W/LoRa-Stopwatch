@@ -7,7 +7,7 @@
 #include "Arduino.h"
 #include <StopWatch.h>
 
-#define FIRMWARE_VERSION "0.9.7"
+#define FIRMWARE_VERSION "0.9.9"
 
 // #include "FS.h"
 // #include "LITTLEFS.h" //this needs to be first, or it all crashes and burns...
@@ -34,6 +34,14 @@ Order of operation in mode SYS_STARTLOOP
     SW_COUNTDOWN -> [btn1:stop] -> SW_IDLE
 */
 
+enum module_modes
+{
+    MOD_BASIC,  // 0 - no trigger function
+    MOD_START,  // 1 - light barrier at start, will detect falsestart
+    MOD_FINISH, // 2 - light barrier at start, will stop watch
+    MOD_LAP     // 3 - light barrier at start, will detect laps
+};
+
 enum system_modes
 {
     SYS_STOPWATCH, // 0 - Countdown, run, stop, reset, idle
@@ -54,7 +62,7 @@ enum stopwatch_modes
     SW_PING,       // 7 - send ping
     SW_PONG,       // 8 - send pong after ping received
     SW_GATE_START, // 9 - light barrier at start gate
-    SW_GATE_STOP  // 10 - light barrier at finish gate
+    SW_GATE_STOP   // 10 - light barrier at finish gate
 };
 
 enum button1_modes
@@ -107,6 +115,18 @@ struct wifi_data_struct
     char dateChar[20];
 };
 
+enum led_modes
+{
+    LED_ON,          // 0 - on
+    LED_OFF,         // 1 - off
+    LED_BREATHE,     // 2 - breathing
+    LED_BLINK_FAST,  // 3 - fast
+    LED_BLINK_MID,   // 4 - mid
+    LED_BLINK_SLOW,  // 5 - slow
+    LED_BLINK_ONCE,  // 6 - once
+    LED_BLINK_DOUBLE // 7 - twice
+};
+
 void oledInit();
 void configLora();
 void configWifi();
@@ -148,12 +168,19 @@ void WiFiAP_loop();
 void send_SW_Mode();
 void send_SW_Count();
 void send_Admin();
-void wsSendMode(int sys_mode, int sw_mode);
+void wsSendMode(int sys_mode, int sw_mode, int mod_mode);
 void wsSendTimer(unsigned int sw_timer, unsigned int timerUsed, unsigned int timeLaps[]);
 void wsSendAdmin(byte localAddress, int incomingRSSI, float incomingSNR, unsigned int swRoundtrip);
 void wsSendCountdown(int count);
 void send_SW_Timer();
 void ws_SysMode(system_modes wsSysMode);
+void ws_ModMode(module_modes trgt_mod_mode);
 system_modes mySysMode();
+
+void save_preferences();
+void setup_preferences();
+
+void setup_battery();
+int battery_info();
 
 #endif

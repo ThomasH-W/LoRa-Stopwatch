@@ -30,7 +30,7 @@ AsyncWebSocket ws("/");
 AsyncWebSocketClient *globalClient = NULL;
 
 // Replace with your network credentials
-const char *ssid = "ESP32-StopWatch";
+const char *ssid = "StopWatch";
 const char *password = "12345678";
 
 // Assign output variables to GPIO pins
@@ -44,11 +44,12 @@ DNSServer dnsServer;
 
 // --------------------------------------------------------------------------
 // websocket - send modes for system and stopwtach - see main.h
-void wsSendMode(int sys_mode, int sw_mode)
+void wsSendMode(int sys_mode, int sw_mode, int mod_mode)
 {
     Serial.printf("wifi::wsSendMode> system mode %d, stopwatch mode %d\n", sys_mode, sw_mode);
     ws.printfAll_P("sys_mode=%d", sys_mode);
     ws.printfAll_P("sw_mode=%d", sw_mode);
+    ws.printfAll_P("mod_mode=%d", mod_mode);
 }
 
 // --------------------------------------------------------------------------
@@ -131,6 +132,14 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
             data[len] = 0;
             char *command = (char *)data;
             Serial.printf("onWsEvent> command: >%s< len: %d\n", command, strlen(command));
+
+            // example: onWsEvent> command: >sw_mode=1< len: 9
+            if (strncmp(command, "mod_mode", strlen("mod_mode")) == 0)
+            {
+                uint8_t trgt_mod_mode = atoi(command + strlen("mod_mode="));
+                Serial.printf("onWsEvent> set mod mode to %d\n", trgt_mod_mode);
+                ws_ModMode((module_modes)trgt_mod_mode);
+            }
 
             // example: onWsEvent> command: >sw_mode=1< len: 9
             if (strncmp(command, "sys_mode", strlen("sys_mode")) == 0)

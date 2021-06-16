@@ -22,6 +22,7 @@ Order of operation in mode SYS_STARTLOOP
 
     X   sys_mode=0          // [system_mode]
     X   sw_mode=0           // [stopwatch_mode]
+    X   mod_mode=0           // [module type]
 
     >   sw_count==5         // countdown
 
@@ -34,7 +35,27 @@ Order of operation in mode SYS_STARTLOOP
     >   admin_RSSI=-46      // LoRa signal strength
     >   admin_SNR=2.3       // LoRa signal quality
     >   admin_roundtrip=81  // LoRa roundtrip in ms
+
+    RSSI    Strength 1/low ... 5/best
+    -90     1
+    -80     2
+    -70     3
+    -67     4
+    -30     5
+
+    SNR     quality 1/low ... 5/best
+    10      5
+    -20     0
 */
+
+enum module_modes
+{
+    MOD_BASIC,  // 0 - no trigger function
+    MOD_START,  // 1 - light barrier at start, will detect falsestart
+    MOD_FINISH, // 2 - light barrier at start, will stop watch
+    MOD_LAP     // 3 - light barrier at start, will detect laps
+};
+
 enum system_modes
 {
     SYS_STOPWATCH, // 0 - Countdown, run, stop, reset, idle
