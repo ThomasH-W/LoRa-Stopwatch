@@ -33,3 +33,6 @@ I.e. you can initiate the start on one device and stop on another.
 Lora modules being used here do have an OLED and are based on the ESP32.
 The only thing to be added is a buzzer.
 A later version will get an additional button in order to select different operating modes.
+
+## Circuit Diagram
+![Schematic](README/images/LoraSW-Schematic.png)
