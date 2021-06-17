@@ -7,7 +7,7 @@
 #include "Arduino.h"
 #include <StopWatch.h>
 
-#define FIRMWARE_VERSION "0.9.9"
+#define FIRMWARE_VERSION "1.0"
 
 // #include "FS.h"
 // #include "LITTLEFS.h" //this needs to be first, or it all crashes and burns...
@@ -47,7 +47,8 @@ enum system_modes
     SYS_STOPWATCH, // 0 - Countdown, run, stop, reset, idle
     SYS_STARTLOOP, // 1 - continous loop: countdown, pause
     SYS_ADMIN,     // 2 - configuration, measure lora signal
-    SYS_BOOT       // 3 - initial state when starting module
+    SYS_GATE,      // 3 - configuration, show light barrier
+    SYS_BOOT       // 4 - initial state when starting module
 };
 
 enum stopwatch_modes
@@ -63,6 +64,13 @@ enum stopwatch_modes
     SW_PONG,       // 8 - send pong after ping received
     SW_GATE_START, // 9 - light barrier at start gate
     SW_GATE_STOP   // 10 - light barrier at finish gate
+};
+
+enum beam_modes
+{
+    BEAM_INIT,   // 0 - initializing system
+    BEAM_ACTIVE, // 1 - beam received, waiting for disturbance
+    BEAM_LOST    // 2 - object blocking beam or mirror out of line
 };
 
 enum button1_modes
@@ -87,8 +95,9 @@ enum gui_modes
     GUI_BOOT, // 0 pure text
     GUI_1,    // 1
     GUI_2,    // 2 Volume
-    GUI_3,    // 2 Preset
-    GUI_4     // 4 Admin
+    GUI_3,    // 3 Preset
+    GUI_4,    // 4 LightBarrier
+    GUI_5     // 5 Admin
 };
 
 struct module_data_struct
@@ -117,14 +126,15 @@ struct wifi_data_struct
 
 enum led_modes
 {
-    LED_ON,          // 0 - on
-    LED_OFF,         // 1 - off
-    LED_BREATHE,     // 2 - breathing
-    LED_BLINK_FAST,  // 3 - fast
-    LED_BLINK_MID,   // 4 - mid
-    LED_BLINK_SLOW,  // 5 - slow
-    LED_BLINK_ONCE,  // 6 - once
-    LED_BLINK_DOUBLE // 7 - twice
+    LED_INIT,   // 0 - pinmode
+    LED_ON,          // 1 - on
+    LED_OFF,         // 2 - off
+    LED_BREATHE,     // 3 - breathing
+    LED_BLINK_FAST,  // 4 - fast
+    LED_BLINK_MID,   // 5 - mid
+    LED_BLINK_SLOW,  // 6 - slow
+    LED_BLINK_ONCE,  // 7 - once
+    LED_BLINK_DOUBLE // 8 - twice
 };
 
 void oledInit();
@@ -170,7 +180,8 @@ void send_SW_Count();
 void send_Admin();
 void wsSendMode(int sys_mode, int sw_mode, int mod_mode);
 void wsSendTimer(unsigned int sw_timer, unsigned int timerUsed, unsigned int timeLaps[]);
-void wsSendAdmin(byte localAddress, int incomingRSSI, float incomingSNR, unsigned int swRoundtrip);
+void wsSendAdmin(byte localAddress, int incomingRSSI, float incomingSNR, unsigned int swRoundtrip,
+                 unsigned int lightBarrierActive, unsigned int lightBarrierBeam);
 void wsSendCountdown(int count);
 void send_SW_Timer();
 void ws_SysMode(system_modes wsSysMode);
@@ -180,6 +191,7 @@ system_modes mySysMode();
 void save_preferences();
 void setup_preferences();
 
+void beepOff();
 void setup_battery();
 int battery_info();
 

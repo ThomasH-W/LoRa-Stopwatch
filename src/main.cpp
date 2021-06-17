@@ -1,6 +1,6 @@
 /*
  * file   : main.cpp
- * date   : 2021-05-02
+ * date   : 2021-06-17
  * 
  * https://github.com/ThomasH-W/LoRa-Stopwatch
  * 
@@ -70,16 +70,19 @@ unsigned int timeLaps[TIME_LAPS_MAX]; // store elapsed time
 unsigned int timeLapsUsed = 0;
 
 bool lightBarrierActive = false;
+beam_modes lightBarrierBeam = BEAM_LOST;
+
 const char mod_mode_name[4][10] = {"basic",  // 0 - no trigger function
                                    "start",  // 1 - light barrier at start, will detect falsestart
                                    "finish", // 2 - light barrier at finish, will stop watch
                                    "lap"};   // 3 - light barrier at finish, will detect laps
 
 system_modes sys_mode = SYS_STOPWATCH, sys_mode_old = SYS_BOOT, sys_mode_received;
-const char sys_mode_name[4][10] = {"single", // 0 SYS_STOPWATCH
+const char sys_mode_name[5][10] = {"single", // 0 SYS_STOPWATCH
                                    "loop",   // 1 SYS_STARTLOOP
                                    "admin",  // 2 SYS_ADMIN
-                                   "boot"};  // 3 SYS_BOOT
+                                   "gate",   // 3 SYS_GATE
+                                   "boot"};  // 4 SYS_BOOT
 
 stopwatch_modes sw_mode = SW_IDLE, sw_mode_old = SW_RESET, sw_mode_received;
 const char sw_mode_name[9][10] = {"Zzzz",  // 0 SW_IDLE
@@ -117,13 +120,12 @@ int interval = 2000;      // interval between sends
 using namespace ace_button;
 const int BUTTON1_PIN = PIN_BTN_1;
 const int BUTTON2_PIN = PIN_BTN_2;
-const int BUTTON3_PIN = PIN_BTN_3; // 37;
+const int BUTTON3_PIN = PIN_BTN_3;
 
 AceButton button1(BUTTON1_PIN);
 AceButton button2(BUTTON2_PIN);
 AceButton button3(BUTTON3_PIN);
 void handleEvent(AceButton *, uint8_t, uint8_t);
-const int LED_PIN = 2; // for ESP32
 
 bool timerRunning = false;
 bool timerCountdownRunning = false;
@@ -136,47 +138,43 @@ unsigned int frequencyLow = 641;
 unsigned int frequencyMid = 400;
 unsigned int duration = 200;
 
-// https://github.com/jandelgado/jled
-#include <jled.h>
-auto ledRun = JLed(PIN_LED_RUN).Blink(1000, 500).Forever(); // PIN_LED_RUN
-auto ledGate = JLed(PIN_LED_GATE).Blink(1000, 500).Forever();
-
 int batteryLevel = 0;
 // ---------------------------------------------------------------------------------------------------------
 // fast:run, single:countdown, double: ping
 void ledRunMode(led_modes lmode)
 {
-  if (lmode == LED_ON)                               // ledGateMode(LED_ON);
-    ledRun.On();                                     // - on
-  else if (lmode == LED_OFF)                         // ledGateMode(LED_OFF);
-    ledRun.Off();                                    // - off
-  else if (lmode == LED_BREATHE)                     // ledGateMode(LED_BREATHE);
-    ledRun.Breathe(2000).DelayAfter(1000).Forever(); // - breathe
-  else if (lmode == LED_BLINK_ONCE)                  // ledGateMode(LED_BLINK_ONCE);
-    ledRun.Blink(200, 200).Repeat(1);                // - blink
-  else if (lmode == LED_BLINK_DOUBLE)                // ledGateMode(LED_BLINK_DOUBLE);
-    ledRun.Blink(100, 100).Repeat(2);                // - blink
-  else if (lmode == LED_BLINK_FAST)                  // ledGateMode(LED_BLINK_FAST);
-    ledRun.Blink(200, 200).Forever();                // - blink
+  if (lmode == LED_INIT)             // ledGateMode(LED_ON);
+    pinMode(PIN_LED_RUN, OUTPUT);    // - on
+  else if (lmode == LED_ON)          // ledGateMode(LED_OFF);
+    digitalWrite(PIN_LED_RUN, HIGH); // - on                // - off
+  else if (lmode == LED_OFF)         // ledGateMode(LED_OFF);
+    digitalWrite(PIN_LED_RUN, LOW);  // - on                // - off
 }
 
 // ---------------------------------------------------------------------------------------------------------
 // show status of PIN_BTN_3 - light barrier
 void ledGateMode(led_modes lmode)
 {
-  if (lmode == LED_ON)                                // ledGateMode(LED_ON);
-    ledGate.On();                                     // - on
-  else if (lmode == LED_OFF)                          // ledGateMode(LED_OFF);
-    ledGate.Off();                                    // - off
-  else if (lmode == LED_BREATHE)                      // ledGateMode(LED_BREATHE);
-    ledGate.Breathe(2000).DelayAfter(1000).Forever(); // - breathe
-  else if (lmode == LED_BLINK_ONCE)                   // ledGateMode(LED_BLINK_ONCE);
-    ledGate.Blink(200, 200).Repeat(1);                // - blink
-  else if (lmode == LED_BLINK_DOUBLE)                 // ledGateMode(LED_BLINK_DOUBLE);
-    ledGate.Blink(100, 100).Repeat(2);                // - blink
-  else if (lmode == LED_BLINK_FAST)                   // ledGateMode(LED_BLINK_FAST);
-    ledGate.Blink(200, 200).Forever();                // - blink
+  if (lmode == LED_INIT)              // ledGateMode(LED_ON);
+    pinMode(PIN_LED_GATE, OUTPUT);    // - on
+  else if (lmode == LED_ON)           // ledGateMode(LED_OFF);
+    digitalWrite(PIN_LED_GATE, HIGH); // - on                // - off
+  else if (lmode == LED_OFF)          // ledGateMode(LED_OFF);
+    digitalWrite(PIN_LED_GATE, LOW);  // - on                // - off
 }
+
+// ---------------------------------------------------------------------------------------------------------
+// fast:run, single:countdown, double: ping
+void ledLoRaMode(led_modes lmode)
+{
+  if (lmode == LED_INIT)              // ledGateMode(LED_ON);
+    pinMode(PIN_LED_LORA, OUTPUT);    // - on
+  else if (lmode == LED_ON)           // ledGateMode(LED_OFF);
+    digitalWrite(PIN_LED_LORA, HIGH); // - on                // - off
+  else if (lmode == LED_OFF)          // ledGateMode(LED_OFF);
+    digitalWrite(PIN_LED_LORA, LOW);  // - on                // - off
+}
+
 // ---------------------------------------------------------------------------------------------------------
 system_modes mySysMode()
 {
@@ -203,6 +201,13 @@ void ws_ModMode(module_modes wsModMode)
     mod_mode = wsModMode;
     save_preferences();
   }
+} // end of function
+
+void system_info()
+{
+  Serial.printf("system_info > sys %d - %s / sw %d - %s\n",
+                sys_mode, sys_mode_name[sys_mode],
+                sw_mode, sw_mode_name[sw_mode]);
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -233,6 +238,7 @@ void loraLoop()
       Serial.printf("loraLoop> incoming sys mode: %d\n", incSysMode);
       sw_reset();
       sys_mode = incSysMode;
+      beepOff();
     }
     else // no change in sysmode
     {
@@ -278,6 +284,7 @@ void loraLoop()
         timerPing.reset();
         Serial.printf("LoRa - pong received: roundtrip took %u ms\n", swPong);
         send_Admin();
+        ledLoRaMode(LED_ON);
         break;
       default:
         // if nothing else matches, do the default
@@ -303,10 +310,12 @@ void loraLoop()
       timerPing.start();
       swPong = 0;
       sendMessage(SW_PING, sys_mode, "ping");
+      ledLoRaMode(LED_OFF);
       ledGateMode(LED_BLINK_DOUBLE);
       ledRunMode(LED_BLINK_DOUBLE);
       loraLoopTimerOld = millis(); // timestamp the message
       batteryLevel = battery_info();
+      system_info();
     } // if timer expired
   }   // if SW_IDLE
 
@@ -583,8 +592,14 @@ void nextSysMode(system_modes cur_sys_mode)
       sys_mode = SYS_ADMIN;
       break;
     case SYS_ADMIN:
+      sys_mode = SYS_GATE;
+      break;
+    case SYS_GATE:
       sys_mode = SYS_STOPWATCH;
       sw_mode = SW_IDLE;
+      beepOff();
+      ledGateMode(LED_OFF);
+      ledRunMode(LED_OFF);
       break;
     case SYS_BOOT:
       sys_mode = SYS_STARTLOOP;
@@ -658,6 +673,37 @@ void oledAdmin(bool initAdmin)
 
   sprintf(buf, "%d", swRoundtrip);
   oledPrint(7, 7, buf);
+
+  MyDeepSleep.reset();
+} // end of function
+
+// ---------------------------------------------------------------------------------------------------------
+// shown status of light barrier
+void oledGate(bool initAdmin)
+{
+  char buf[20];
+
+  if (initAdmin == true)
+  {
+    oledClear();
+    oledPrint(0, 1, "   BAT");
+    oledPrint(0, 3, "  beam");
+  }
+
+  sprintf(buf, "%d", batteryLevel);
+  oledPrint(7, 1, buf);
+
+  if (lightBarrierBeam == BEAM_LOST)
+  {
+    oledPrint(7, 3, "LOST");
+    oledPrint(2, 5, ">--- XX    ");
+  }
+  else
+  {
+    oledPrint(7, 3, "OK  ");
+    oledPrint(2, 5, ">----------");
+  }
+
   MyDeepSleep.reset();
 } // end of function
 
@@ -747,15 +793,10 @@ void oledLoop()
       oled_sw_mode_old = sw_mode;
     } // mode changed, udate required
 
-    if (sys_mode == SYS_ADMIN)
-    {
-      oledAdmin(false);
-    }
-
     if (sys_mode != oled_sys_mode_old)
     {
       send_SW_Mode();
-      if (oled_sys_mode_old == SYS_ADMIN)
+      if (oled_sys_mode_old == SYS_GATE)
       {
         oledClear();                 // clear screen
         oled_sw_mode_old = SW_RESET; // force re-building of screen
@@ -765,6 +806,11 @@ void oledLoop()
       if (sys_mode == SYS_ADMIN)
       {
         oledAdmin(true);
+        send_Admin();
+      }
+      else if (sys_mode == SYS_GATE)
+      {
+        oledGate(true);
         send_Admin();
       }
       else
@@ -777,7 +823,19 @@ void oledLoop()
       }
 
       oled_sys_mode_old = sys_mode;
-    } // mode changed, udate required
+    }    // mode changed, udate required
+    else // mode did not change but admin or gate page s/b refreshed
+    {
+      if (sys_mode == SYS_ADMIN)
+      {
+        oledAdmin(false);
+      }
+
+      if (sys_mode == SYS_GATE)
+      {
+        oledGate(false);
+      }
+    }
 
     oledUpdate = false;
   } // refresh intervall for oled
@@ -855,6 +913,7 @@ void handleEvent(AceButton *button, uint8_t eventType, uint8_t buttonState)
     else if (butPressed == BUTTON3_PIN)
     {
       Serial.printf("handleEvent> button 3: PRESS for pin %d\n", butPressed);
+      lightBarrierBeam = BEAM_LOST;
       if (mod_mode == MOD_START && lightBarrierActive == true)
         nextStopwatchMode(SW_FALSESTART);
       if (mod_mode == MOD_FINISH && lightBarrierActive == true)
@@ -865,6 +924,7 @@ void handleEvent(AceButton *button, uint8_t eventType, uint8_t buttonState)
     if (butPressed == BUTTON3_PIN)
     {
       Serial.printf("handleEvent> button 3 : RELEASE for pin %d\n", butPressed);
+      lightBarrierBeam = BEAM_ACTIVE;
     }
     break;
     /*
@@ -1042,7 +1102,44 @@ uint32_t setup_ID()
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
-//  The true ESP32 chip ID is essentially its MAC address
+//  beep if sys mode is gate
+void gateLoop()
+{
+  static unsigned long gateLoopTimerOld, gateAliveIntervall = 500;
+
+  if (sys_mode == SYS_GATE)
+  {
+    if (millis() - gateLoopTimerOld > gateAliveIntervall)
+    {
+      if (lightBarrierBeam == BEAM_ACTIVE)
+      {
+        beepHigh();
+        ledRunMode(LED_OFF);
+        ledGateMode(LED_ON);
+      }
+      else
+      {
+        beepOff();
+        ledRunMode(LED_ON);
+        ledGateMode(LED_OFF);
+      }
+      gateLoopTimerOld = millis();
+    } // timer expired
+  }   // GATE sys_mode
+  else
+  {
+    beepOff();
+  }
+} // end of function
+
+// ---------------------------------------------------------------------------------------------------------
+void beepOff()
+{
+  // Serial.println("beepOff");
+  EasyBuzzer.stopBeep();
+} // end of function
+
+// ---------------------------------------------------------------------------------------------------------
 void beepHigh()
 {
   // Serial.println("beepHigh");
@@ -1050,7 +1147,6 @@ void beepHigh()
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
-//  The true ESP32 chip ID is essentially its MAC address
 void beepMid()
 {
   // Serial.println("beepMid");
@@ -1058,7 +1154,6 @@ void beepMid()
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
-//  The true ESP32 chip ID is essentially its MAC address
 void beepLow()
 {
   // Serial.println("beepLow");
@@ -1066,7 +1161,6 @@ void beepLow()
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
-//  The true ESP32 chip ID is essentially its MAC address
 void setupBuzzer()
 {
   Serial.printf("setupBuzzer on PIN %d\n", PIN_BUZ_1);
@@ -1088,7 +1182,8 @@ void send_SW_Timer()
 // ---------------------------------------------------------------------------------------------------------
 void send_Admin()
 {
-  wsSendAdmin(localAddress, incomingRSSI, incomingSNR, swRoundtrip);
+  wsSendAdmin(localAddress, incomingRSSI, incomingSNR, swRoundtrip,
+              (unsigned int)lightBarrierActive, (unsigned int)lightBarrierBeam);
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -1128,8 +1223,14 @@ void setup()
 {
   uint32_t myMAC;
 
+  ledRunMode(LED_INIT);
+  ledGateMode(LED_INIT);
+  ledLoRaMode(LED_INIT);
+
   ledRunMode(LED_ON);
   ledGateMode(LED_ON);
+  ledLoRaMode(LED_ON);
+
   // Initialize Serial Monitor
   Serial.begin(115200);
   delay(50);
@@ -1160,6 +1261,7 @@ void setup()
 
   ledRunMode(LED_OFF);
   ledGateMode(LED_OFF);
+  ledLoRaMode(LED_OFF);
 
 } // end of function
 
@@ -1175,9 +1277,10 @@ void loop()
   button2.check(); // check if button was pressed
   button3.check(); // check if button was pressed
 
-  EasyBuzzer.update();                  // play buzzer if reuqested
+  EasyBuzzer.update();                  // play buzzer if requested
   deepSleepLoop(sw_mode, &MyDeepSleep); // check if device should go into sleep
 
+  gateLoop(); // gate setup mode: buzzer
   // ledRun.Update(); // lora roundtrip impacted by 30 ms
   // ledGate.Update();
   WiFiAP_loop();

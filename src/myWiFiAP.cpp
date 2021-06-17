@@ -46,7 +46,7 @@ DNSServer dnsServer;
 // websocket - send modes for system and stopwtach - see main.h
 void wsSendMode(int sys_mode, int sw_mode, int mod_mode)
 {
-    Serial.printf("wifi::wsSendMode> system mode %d, stopwatch mode %d\n", sys_mode, sw_mode);
+    Serial.printf("wifi::wsSendMode > system mode %d, stopwatch mode %d\n", sys_mode, sw_mode);
     ws.printfAll_P("sys_mode=%d", sys_mode);
     ws.printfAll_P("sw_mode=%d", sw_mode);
     ws.printfAll_P("mod_mode=%d", mod_mode);
@@ -86,15 +86,20 @@ void wsSendCountdown(int count)
 
 // --------------------------------------------------------------------------
 // websocket - send modes for system and stopwtach - see main.h
-void wsSendAdmin(byte localAddress, int incomingRSSI, float incomingSNR, unsigned int swRoundtrip)
+void wsSendAdmin(byte localAddress, int incomingRSSI, float incomingSNR, unsigned int swRoundtrip,
+                 unsigned int lightBarrierActive, unsigned int lightBarrierBeam)
 {
-    Serial.printf("wifi::wsSendAdmin> firmware %s, deviceID %2x, RSSI %d, SNR %2.1f, trip %d\n",
-                  FIRMWARE_VERSION, localAddress, incomingRSSI, incomingSNR, swRoundtrip);
+    Serial.printf("wifi::wsSendAdmin> firmware %s, deviceID %2x, RSSI %d, SNR %2.1f, trip %d, gate %d, beam %d\n",
+                  FIRMWARE_VERSION, localAddress,
+                  incomingRSSI, incomingSNR, swRoundtrip,
+                  lightBarrierActive, lightBarrierBeam);
     ws.printfAll_P("admin_firmware=%s", FIRMWARE_VERSION);
     ws.printfAll_P("admin_deviceID=%2x", localAddress);
     ws.printfAll_P("admin_RSSI=%d", incomingRSSI);
     ws.printfAll_P("admin_SNR=%2.1f", incomingSNR);
     ws.printfAll_P("admin_roundtrip=%d", swRoundtrip);
+    ws.printfAll_P("admin_lbactive=%d", lightBarrierActive);
+    ws.printfAll_P("admin_beam=%d", lightBarrierBeam);
 }
 
 // --------------------------------------------------------------------------
@@ -274,9 +279,8 @@ void setup_webserver()
         Serial.println(F("fail."));
     }
 
-    webServer.on("/inline", [](AsyncWebServerRequest *request) {
-        request->send(200, "text/plain", "this works as well");
-    });
+    webServer.on("/inline", [](AsyncWebServerRequest *request)
+                 { request->send(200, "text/plain", "this works as well"); });
 
     webServer.serveStatic("/", LITTLEFS, "/").setDefaultFile("index.html");
     webServer.onNotFound(handleNotFound);

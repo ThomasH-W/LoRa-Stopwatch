@@ -26,22 +26,21 @@
 
 // pin 34...39 input only, no PWM
 // ADC ranging from 0 to 4095
-// ADC1 pin 32..39 - ADC2 pins cannot be used when Wi-Fi is used
-// ADC2 pin 0..26
+// ADC1 pin 32..39
+// ADC2 pin 0..26 - ADC2 is used by the Wi-Fi driver. Therefore the application can only use ADC2 when the Wi-Fi driver has not started
+
+#define PIN_LED_GATE 12 // show status of gate
+#define PIN_LED_LORA 2  // show status of LoRa
+#define PIN_LED_RUN 13  // fast:run, single:countdown, double: ping
 
 // Battery - analog digital converter
-#define PIN_ADC_BAT 34 // #gpio32 to 39 or 255 if not used
 #define PIN_ADC_EN 14  // #ADC_EN is the ADC detection enable port
+#define PIN_ADC_BAT 34 // #gpio32 to 39 or 255 if not used
 
 // Buttons
 #define PIN_BTN_1 0  // Start/Stop, on board button
-#define PIN_BTN_2 13 // Mode
-#define PIN_BTN_3 12 // Light barrier
-
-#define PIN_LED_GATE 36 // show status of gate
-// #define PIN_LED_GATE 2 // show status of gate
-// #define PIN_LED_RUN 2   // fast:run, single:countdown, double: ping
-#define PIN_LED_RUN 37 // fast:run, single:countdown, double: ping
+#define PIN_BTN_2 17 // Mode
+#define PIN_BTN_3 35 // Light barrier --- was 12 
 
 // Buzzer -- ESP32: GPIO 34-39 can't be used
 #define PIN_BUZ_1 21 // on board button
