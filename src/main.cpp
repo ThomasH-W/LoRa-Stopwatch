@@ -9,6 +9,16 @@
  * 
  *
  * ToDo:
+ *  check beam before enabling countdown, shown error on default page
+ *  put Gate to Active when countdown starts
+ *  disable Start Gate after start
+ *  disable finish gate after stop
+ *  implement gateTrigger for
+ *  -- start / falsestart
+ *  -- finish/lap 
+ *  
+ *  OTA , when in admin mode 
+ * 
  *  swTime < lap time
  *  roundtrip with 3+ devices
  *  define maximium run time, e.g. 15min
@@ -24,6 +34,12 @@
 #include "GPIO_PINS.h"
 
 module_modes mod_mode = MOD_BASIC; // define type of module: Basic, Start, Finish, Lap
+
+// Libraries for LED
+#include <myLED.h>
+myLED ledGate(PIN_LED_GATE); // RED
+myLED ledRun(PIN_LED_RUN);   // BLUE
+myLED ledLora(PIN_LED_LORA); // on board blue LED
 
 //Libraries for Lora
 #include <SPI.h> // include libraries
@@ -72,10 +88,10 @@ unsigned int timeLapsUsed = 0;
 bool lightBarrierActive = false;
 beam_modes lightBarrierBeam = BEAM_LOST;
 
-const char mod_mode_name[4][10] = {"basic",  // 0 - no trigger function
-                                   "start",  // 1 - light barrier at start, will detect falsestart
-                                   "finish", // 2 - light barrier at finish, will stop watch
-                                   "lap"};   // 3 - light barrier at finish, will detect laps
+const char mod_mode_name[4][10] = {"basic ",  // 0 - no trigger function
+                                   "start ",  // 1 - light barrier at start, will detect falsestart
+                                   "finish",  // 2 - light barrier at finish, will stop watch
+                                   "lap   "}; // 3 - light barrier at finish, will detect laps
 
 system_modes sys_mode = SYS_STOPWATCH, sys_mode_old = SYS_BOOT, sys_mode_received;
 const char sys_mode_name[5][10] = {"single", // 0 SYS_STOPWATCH
@@ -140,42 +156,6 @@ unsigned int duration = 200;
 
 int batteryLevel = 0;
 // ---------------------------------------------------------------------------------------------------------
-// fast:run, single:countdown, double: ping
-void ledRunMode(led_modes lmode)
-{
-  if (lmode == LED_INIT)             // ledGateMode(LED_ON);
-    pinMode(PIN_LED_RUN, OUTPUT);    // - on
-  else if (lmode == LED_ON)          // ledGateMode(LED_OFF);
-    digitalWrite(PIN_LED_RUN, HIGH); // - on                // - off
-  else if (lmode == LED_OFF)         // ledGateMode(LED_OFF);
-    digitalWrite(PIN_LED_RUN, LOW);  // - on                // - off
-}
-
-// ---------------------------------------------------------------------------------------------------------
-// show status of PIN_BTN_3 - light barrier
-void ledGateMode(led_modes lmode)
-{
-  if (lmode == LED_INIT)              // ledGateMode(LED_ON);
-    pinMode(PIN_LED_GATE, OUTPUT);    // - on
-  else if (lmode == LED_ON)           // ledGateMode(LED_OFF);
-    digitalWrite(PIN_LED_GATE, HIGH); // - on                // - off
-  else if (lmode == LED_OFF)          // ledGateMode(LED_OFF);
-    digitalWrite(PIN_LED_GATE, LOW);  // - on                // - off
-}
-
-// ---------------------------------------------------------------------------------------------------------
-// fast:run, single:countdown, double: ping
-void ledLoRaMode(led_modes lmode)
-{
-  if (lmode == LED_INIT)              // ledGateMode(LED_ON);
-    pinMode(PIN_LED_LORA, OUTPUT);    // - on
-  else if (lmode == LED_ON)           // ledGateMode(LED_OFF);
-    digitalWrite(PIN_LED_LORA, HIGH); // - on                // - off
-  else if (lmode == LED_OFF)          // ledGateMode(LED_OFF);
-    digitalWrite(PIN_LED_LORA, LOW);  // - on                // - off
-}
-
-// ---------------------------------------------------------------------------------------------------------
 system_modes mySysMode()
 {
   return sys_mode;
@@ -205,9 +185,10 @@ void ws_ModMode(module_modes wsModMode)
 
 void system_info()
 {
-  Serial.printf("system_info > sys %d - %s / sw %d - %s\n",
+  Serial.printf("system_info > sys %d - %s / sw %d - %s / type %d - %s\n",
                 sys_mode, sys_mode_name[sys_mode],
-                sw_mode, sw_mode_name[sw_mode]);
+                sw_mode, sw_mode_name[sw_mode],
+                mod_mode, mod_mode_name[mod_mode]);
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -284,7 +265,7 @@ void loraLoop()
         timerPing.reset();
         Serial.printf("LoRa - pong received: roundtrip took %u ms\n", swPong);
         send_Admin();
-        ledLoRaMode(LED_ON);
+        ledLora.on();
         break;
       default:
         // if nothing else matches, do the default
@@ -310,9 +291,9 @@ void loraLoop()
       timerPing.start();
       swPong = 0;
       sendMessage(SW_PING, sys_mode, "ping");
-      ledLoRaMode(LED_OFF);
-      ledGateMode(LED_BLINK_DOUBLE);
-      ledRunMode(LED_BLINK_DOUBLE);
+      ledLora.off();
+      ledRun.off();
+      // ledRun.blink1x();
       loraLoopTimerOld = millis(); // timestamp the message
       batteryLevel = battery_info();
       system_info();
@@ -371,8 +352,8 @@ void sw_stop()
   oledUpdate = true;
   btn1_mode = BTN1_RESET;
   lightBarrierActive = false;
-  ledGateMode(LED_OFF);
-  ledRunMode(LED_OFF);
+  ledGate.off();
+  ledRun.off();
   send_SW_Timer(); // send timer to wifi clients
   beepMid();
 } // end of function
@@ -397,8 +378,8 @@ void sw_reset()
   btn1_mode = BTN1_START;
   btn2_mode = BTN2_MODE;
   lightBarrierActive = false;
-  ledGateMode(LED_OFF);
-  ledRunMode(LED_OFF);
+  ledGate.off();
+  ledRun.off();
   timeLapsUsed = 0;
   for (int i = 0; i < TIME_LAPS_MAX; i++) // clear old laps
     timeLaps[i] = 0;
@@ -418,7 +399,8 @@ void sw_start()
   btn1_mode = BTN1_STOP;
   countDownStep = COUNTDOWN_STEPS;
   lightBarrierActive = true;
-  ledGateMode(LED_BLINK_FAST);
+  ledGate.on();
+  // ledRun.blink3x();
   MyDeepSleep.reset();
 } // end of function
 
@@ -435,11 +417,11 @@ void sw_run()
   countDownStep = COUNTDOWN_STEPS;
   btn1_mode = BTN1_STOP;
   beepHigh();
-  ledGateMode(LED_BLINK_FAST);
+  ledRun.blink3x();
   if (mod_mode == MOD_START) // if module is at start, deactivate light barrier
   {
     lightBarrierActive = false;
-    ledGateMode(LED_OFF);
+    ledGate.off();
   }
 } // end of function
 
@@ -478,14 +460,16 @@ void stopwatchLoop()
     if (timerCountdown.elapsed() > 1000 * (COUNTDOWN_STEPS - countDownStep))
     {
       send_SW_Count();
+      ledRun.on();
       Serial.printf("stopwatchLoop> countdown = %d at %d\n", countDownStep, timerCountdown.elapsed());
       beepLow();
-      ledRunMode(LED_BLINK_ONCE);
+      // ledRun.blink1x();
 
       itoa(countDownStep, buf, 10);
       oledClearRow(3);
       oled2xPrint(6, 3, buf); // void oledPrint(int x, int y, const char *message
 
+      ledRun.off();
       countDownStep--;
     }
 
@@ -569,8 +553,26 @@ void nextStopwatchMode(stopwatch_modes cur_mode)
       break;
     case SW_FALSESTART:
       break;
+    }                             // end switch
+  }                               // end system in continous countdown mode
+  else if (sys_mode == SYS_ADMIN) //system in continous countdown mode
+  {
+    switch (mod_mode)
+    {
+    case MOD_BASIC:
+      mod_mode = MOD_START;
+      break;
+    case MOD_START:
+      mod_mode = MOD_FINISH;
+      break;
+    case MOD_FINISH:
+      mod_mode = MOD_LAP;
+      break;
+    case MOD_LAP:
+      mod_mode = MOD_BASIC;
+      break;
     } // end switch
-  }   // end system in continous countdown mode
+  }
 
   Serial.printf("nextStopwatchMode>: %d %s -> %d %s\n", sw_mode_old, sw_mode_name[sw_mode_old], sw_mode, sw_mode_name[sw_mode]);
 
@@ -593,13 +595,15 @@ void nextSysMode(system_modes cur_sys_mode)
       break;
     case SYS_ADMIN:
       sys_mode = SYS_GATE;
+      save_preferences();
       break;
     case SYS_GATE:
       sys_mode = SYS_STOPWATCH;
       sw_mode = SW_IDLE;
+      lightBarrierActive = false; // used to trigger stopwatch
       beepOff();
-      ledGateMode(LED_OFF);
-      ledRunMode(LED_OFF);
+      ledGate.off();
+      ledRun.off();
       break;
     case SYS_BOOT:
       sys_mode = SYS_STARTLOOP;
@@ -1114,14 +1118,14 @@ void gateLoop()
       if (lightBarrierBeam == BEAM_ACTIVE)
       {
         beepHigh();
-        ledRunMode(LED_OFF);
-        ledGateMode(LED_ON);
+        ledRun.off();
+        ledGate.on();
       }
       else
       {
         beepOff();
-        ledRunMode(LED_ON);
-        ledGateMode(LED_OFF);
+        ledRun.on();
+        ledGate.off();
       }
       gateLoopTimerOld = millis();
     } // timer expired
@@ -1130,6 +1134,27 @@ void gateLoop()
   {
     beepOff();
   }
+
+  if (lightBarrierActive == true) // gate is active when countdown starts
+  {
+    if (mod_mode == MOD_START) // module at start gate
+    {
+      if (lightBarrierBeam == BEAM_LOST) // gate triggered :: falsestart
+      {
+        beepLow();
+        sw_stop();
+      } // end of trigger
+    }
+    else if (mod_mode == MOD_FINISH) // module at finish gate
+    {
+      if (lightBarrierBeam == BEAM_LOST) // gate triggered :: count lap
+      {
+        beepMid();
+        sw_lap();
+      } // end of trigger
+    }
+  } // end of active gate
+
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -1196,9 +1221,12 @@ void send_SW_Count()
 // save current mode of module
 void save_preferences()
 {
+  unsigned int prefMode = (int)mod_mode;
+
   myPreferences.begin("stopwatch", false);    /* Start a namespace "iotsharing"in Read-Write mode */
-  myPreferences.putInt("mod_mode", mod_mode); /* Store preset to the Preferences */
-  Serial.printf("save_preferences> mod_mode %d\n", mod_mode);
+  myPreferences.putUInt("mod_mode", prefMode); /* Store preset to the Preferences */
+  Serial.printf("save_preferences> mod_mode %u - %s (write %u)\n", mod_mode, mod_mode_name[mod_mode], prefMode);
+
   myPreferences.end(); // Close the Preferences
 } // end of function
 
@@ -1207,13 +1235,13 @@ void save_preferences()
 // https://github.com/espressif/arduino-esp32/blob/master/libraries/Preferences/src/Preferences.h
 void setup_preferences()
 {
-  int prefMode = 0;
+  unsigned int prefMode = 0;
 
   myPreferences.begin("stopwatch", false);
-  myPreferences.getInt("mod_mode", prefMode); /* Store preset to the Preferences */
 
+  prefMode = myPreferences.getUInt("mod_mode", 0); // default = 0
   mod_mode = (module_modes)prefMode;
-  Serial.printf("setup_preferences> mod_mode %u - %s\n", mod_mode, mod_mode_name[mod_mode]);
+  Serial.printf("setup_preferences> mod_mode %u - %s (read %u)\n", mod_mode, mod_mode_name[mod_mode], prefMode);
 
   myPreferences.end(); // Close the Preferences
 } // end of function
@@ -1223,13 +1251,9 @@ void setup()
 {
   uint32_t myMAC;
 
-  ledRunMode(LED_INIT);
-  ledGateMode(LED_INIT);
-  ledLoRaMode(LED_INIT);
-
-  ledRunMode(LED_ON);
-  ledGateMode(LED_ON);
-  ledLoRaMode(LED_ON);
+  ledRun.on();
+  ledGate.on();
+  ledLora.on();
 
   // Initialize Serial Monitor
   Serial.begin(115200);
@@ -1259,9 +1283,9 @@ void setup()
   sw_reset();
   oledClear();
 
-  ledRunMode(LED_OFF);
-  ledGateMode(LED_OFF);
-  ledLoRaMode(LED_OFF);
+  ledRun.off();
+  ledGate.off();
+  ledLora.off();
 
 } // end of function
 
@@ -1281,6 +1305,11 @@ void loop()
   deepSleepLoop(sw_mode, &MyDeepSleep); // check if device should go into sleep
 
   gateLoop(); // gate setup mode: buzzer
+
+  ledRun.loop();
+  ledGate.loop();
+  ledLora.loop();
+
   // ledRun.Update(); // lora roundtrip impacted by 30 ms
   // ledGate.Update();
   WiFiAP_loop();

@@ -29,9 +29,9 @@
 // ADC1 pin 32..39
 // ADC2 pin 0..26 - ADC2 is used by the Wi-Fi driver. Therefore the application can only use ADC2 when the Wi-Fi driver has not started
 
-#define PIN_LED_GATE 12 // show status of gate
 #define PIN_LED_LORA 2  // show status of LoRa
-#define PIN_LED_RUN 13  // fast:run, single:countdown, double: ping
+#define PIN_LED_RUN 12  // fast:run, single:countdown, double: ping
+#define PIN_LED_GATE 13 // show status of gate
 
 // Battery - analog digital converter
 #define PIN_ADC_EN 14  // #ADC_EN is the ADC detection enable port

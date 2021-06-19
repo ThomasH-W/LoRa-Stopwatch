@@ -7,7 +7,7 @@
 #include "Arduino.h"
 #include <StopWatch.h>
 
-#define FIRMWARE_VERSION "1.0"
+#define FIRMWARE_VERSION "1.0.2"
 
 // #include "FS.h"
 // #include "LITTLEFS.h" //this needs to be first, or it all crashes and burns...
@@ -122,19 +122,6 @@ struct wifi_data_struct
     char IPChar[20];   // SSID - wlan name
     char timeOfDayChar[20];
     char dateChar[20];
-};
-
-enum led_modes
-{
-    LED_INIT,   // 0 - pinmode
-    LED_ON,          // 1 - on
-    LED_OFF,         // 2 - off
-    LED_BREATHE,     // 3 - breathing
-    LED_BLINK_FAST,  // 4 - fast
-    LED_BLINK_MID,   // 5 - mid
-    LED_BLINK_SLOW,  // 6 - slow
-    LED_BLINK_ONCE,  // 7 - once
-    LED_BLINK_DOUBLE // 8 - twice
 };
 
 void oledInit();

@@ -5,6 +5,8 @@
  * https://github.com/me-no-dev/ESPAsyncWebServer
  * https://github.com/me-no-dev/ESPAsyncWebServer/blob/master/examples/ESP_AsyncFSBrowser/ESP_AsyncFSBrowser.ino
  * 
+ * https://randomnerdtutorials.com/esp32-ota-over-the-air-arduino/
+ * 
 */
 #include <Arduino.h>
 #include "main.h"
@@ -33,10 +35,6 @@ AsyncWebSocketClient *globalClient = NULL;
 const char *ssid = "StopWatch";
 const char *password = "12345678";
 
-// Assign output variables to GPIO pins
-const int output26 = 36;
-const int output27 = 37;
-
 unsigned long dnsPreviousMillis = 0;
 unsigned int dnsInterval = 2000;
 const byte DNS_PORT = 53;
@@ -46,7 +44,7 @@ DNSServer dnsServer;
 // websocket - send modes for system and stopwtach - see main.h
 void wsSendMode(int sys_mode, int sw_mode, int mod_mode)
 {
-    Serial.printf("wifi::wsSendMode > system mode %d, stopwatch mode %d\n", sys_mode, sw_mode);
+    Serial.printf("wifi::wsSendMode > system mode %d, stopwatch mode %d, type %d\n", sys_mode, sw_mode, mod_mode);
     ws.printfAll_P("sys_mode=%d", sys_mode);
     ws.printfAll_P("sw_mode=%d", sw_mode);
     ws.printfAll_P("mod_mode=%d", mod_mode);
