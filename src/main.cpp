@@ -9,15 +9,12 @@
  * 
  *
  * ToDo:
+ * 
  *  check beam before enabling countdown, shown error on default page
- *  put Gate to Active when countdown starts
- *  disable Start Gate after start
  *  disable finish gate after stop
  *  implement gateTrigger for
- *  -- start / falsestart
  *  -- finish/lap 
  *  
- *  OTA , when in admin mode 
  * 
  *  swTime < lap time
  *  roundtrip with 3+ devices
@@ -76,7 +73,7 @@ String outgoing; // outgoing message
 String plaintext = outgoing;
 
 #include <StopWatch.h>
-StopWatch timerStopWatch, timerCountdown, timerPing, MyDeepSleep;
+StopWatch timerStopWatch, timerCountdown, timerPing, MyDeepSleep, timerFalseStart;
 
 #define COUNTDOWN_STEPS 5
 unsigned int countDownStep = COUNTDOWN_STEPS;
@@ -84,6 +81,9 @@ unsigned int swTime = 0, swPong = 0, swRoundtrip = 0;
 
 unsigned int timeLaps[TIME_LAPS_MAX]; // store elapsed time
 unsigned int timeLapsUsed = 0;
+
+bool loraConnected = false; // LoRa partner connected
+bool badStart = false;      // indicate falsestart
 
 bool lightBarrierActive = false;
 beam_modes lightBarrierBeam = BEAM_LOST;
@@ -124,8 +124,6 @@ const char btn2_name[5][10] = {"Mode",  // 0 BTN2_MODE
                                "Reset", // 3 BTN2_RESET
                                "Back"}; // 4 BTN2_BACK
 
-gui_modes gui_mode = GUI_BOOT;
-
 byte msgCount = 0;        // count of outgoing messages
 byte localAddress = 0xBB; // address of this device
 byte destination = 0xFF;  // destination to send to 0xFF = broadcast
@@ -148,17 +146,21 @@ bool timerCountdownRunning = false;
 bool timerRemoteStart = false;
 unsigned timerRemoteOffset = 30;
 
-#include "EasyBuzzer.h"
-unsigned int frequencyHigh = 797;
-unsigned int frequencyLow = 641;
-unsigned int frequencyMid = 400;
-unsigned int duration = 200;
-
 int batteryLevel = 0;
 // ---------------------------------------------------------------------------------------------------------
 system_modes mySysMode()
 {
   return sys_mode;
+} // end of function
+
+// ---------------------------------------------------------------------------------------------------------
+void ws_BuzzerMode(bool wsBuzzerMode)
+{
+  if (wsBuzzerMode == true)
+    buzzerOn();
+  else
+    buzzerOff();
+
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -249,7 +251,9 @@ void loraLoop()
         break;
       case SW_FALSESTART:
         sw_mode = SW_STOP;
-        sw_stop();
+        badStart = true;
+        beepLow();
+        sw_reset();
         break;
       case SW_LAP:
         // Serial.println("call sw_lap");
@@ -266,6 +270,7 @@ void loraLoop()
         Serial.printf("LoRa - pong received: roundtrip took %u ms\n", swPong);
         send_Admin();
         ledLora.on();
+        loraConnected = true;
         break;
       default:
         // if nothing else matches, do the default
@@ -292,11 +297,12 @@ void loraLoop()
       swPong = 0;
       sendMessage(SW_PING, sys_mode, "ping");
       ledLora.off();
-      ledRun.off();
+      loraConnected = false;
       // ledRun.blink1x();
       loraLoopTimerOld = millis(); // timestamp the message
       batteryLevel = battery_info();
       system_info();
+
     } // if timer expired
   }   // if SW_IDLE
 
@@ -347,6 +353,7 @@ void sw_stop()
     timerRemoteStart = false;
   }
   timerRunning = false;
+  timerCountdownRunning = false;
   sw_mode_old = sw_mode;
   sw_mode = SW_RESET;
   oledUpdate = true;
@@ -375,14 +382,25 @@ void sw_reset()
   MyDeepSleep.reset();
   MyDeepSleep.start();
   swTime = 0;
+  timerFalseStart.reset(); // timer set to zero
   btn1_mode = BTN1_START;
   btn2_mode = BTN2_MODE;
   lightBarrierActive = false;
   ledGate.off();
-  ledRun.off();
   timeLapsUsed = 0;
   for (int i = 0; i < TIME_LAPS_MAX; i++) // clear old laps
     timeLaps[i] = 0;
+
+  if (digitalRead(PIN_BTN_3)) // Liest den Inputpin
+  {
+    lightBarrierBeam = BEAM_ACTIVE;
+    ledRun.on();
+  }
+  else
+  {
+    lightBarrierBeam = BEAM_LOST;
+    ledRun.off();
+  }
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -522,12 +540,14 @@ void nextStopwatchMode(stopwatch_modes cur_mode)
     case SW_FALSESTART:
       sendMessage(SW_FALSESTART, sys_mode, "false start");
       sw_mode = SW_FALSESTART;
-      sw_stop();
+      badStart = true;
+      beepLow();
+      sw_reset();
       break;
     case SW_LAP:
       sendMessage(SW_LAP, sys_mode, "lap");
-      sw_mode = SW_LAP;
       sw_lap();
+      sw_mode = SW_RUNNING; // kep on running
       break;
     default:
       // if nothing else matches, do the default
@@ -764,8 +784,43 @@ void oledLoop()
     }
     else if (sw_mode == SW_IDLE)
     {
-      sprintf(buf, "%d ", swRoundtrip);
-      oledPrint(7, 7, buf);
+
+      if (badStart == true)
+        oledPrint(0, 6, "FALSESTART");
+      else
+        oledPrint(0, 6, "          ");
+
+      if (loraConnected == true) // show status of LoRa connection
+      {
+        sprintf(buf, "%d ", swRoundtrip);
+        oledPrint(7, 7, buf);
+        oledPrint(11, 7, "L");
+      }
+      else
+      {
+        oledPrint(7, 7, "   ");
+        oledPrint(11, 7, "-");
+      }
+
+      if (buzzerEnabled()) // show if buzzer is enabled
+        oledPrint(12, 7, "T");
+      else
+        oledPrint(12, 7, "-");
+
+      if (lightBarrierBeam == BEAM_ACTIVE) // show if beam is active, i.e. light is returned
+        oledPrint(13, 7, "B");
+      else
+        oledPrint(13, 7, "-");
+
+      if (mod_mode == MOD_BASIC) // show module type
+        oledPrint(14, 7, "-");
+      else if (mod_mode == MOD_START) // show module type
+        oledPrint(14, 7, "S");
+      else if (mod_mode == MOD_FINISH) // show module type
+        oledPrint(14, 7, "F");
+      else if (mod_mode == MOD_LAP) // show module type
+        oledPrint(14, 7, "L");
+
     } // SW_RESET
 
     if (sw_mode != oled_sw_mode_old)
@@ -914,14 +969,20 @@ void handleEvent(AceButton *button, uint8_t eventType, uint8_t buttonState)
       Serial.printf("handleEvent> button 2: xxxx for pin %d\n", butPressed);
       nextSysMode(sys_mode);
     }
-    else if (butPressed == BUTTON3_PIN)
+    else if (butPressed == BUTTON3_PIN) // beam / light barrier
     {
       Serial.printf("handleEvent> button 3: PRESS for pin %d\n", butPressed);
+
       lightBarrierBeam = BEAM_LOST;
+      if (sys_mode == SYS_STOPWATCH && sw_mode == SW_IDLE)
+        ledRun.off();
+
       if (mod_mode == MOD_START && lightBarrierActive == true)
         nextStopwatchMode(SW_FALSESTART);
-      if (mod_mode == MOD_FINISH && lightBarrierActive == true)
+      else if (mod_mode == MOD_LAP && lightBarrierActive == true)
         nextStopwatchMode(SW_LAP);
+      else if (mod_mode == MOD_FINISH && lightBarrierActive == true)
+        nextStopwatchMode(sw_mode);
     }
     break;
   case AceButton::kEventReleased: // kEventPressed , kEventReleased
@@ -929,6 +990,8 @@ void handleEvent(AceButton *button, uint8_t eventType, uint8_t buttonState)
     {
       Serial.printf("handleEvent> button 3 : RELEASE for pin %d\n", butPressed);
       lightBarrierBeam = BEAM_ACTIVE;
+      if (sys_mode == SYS_STOPWATCH && sw_mode == SW_IDLE)
+        ledRun.on();
     }
     break;
     /*
@@ -1111,6 +1174,7 @@ void gateLoop()
 {
   static unsigned long gateLoopTimerOld, gateAliveIntervall = 500;
 
+  // admin-gate: find beam
   if (sys_mode == SYS_GATE)
   {
     if (millis() - gateLoopTimerOld > gateAliveIntervall)
@@ -1135,62 +1199,46 @@ void gateLoop()
     beepOff();
   }
 
-  if (lightBarrierActive == true) // gate is active when countdown starts
+} // end of function
+
+// ---------------------------------------------------------------------------------------------------------
+//  beep if sys mode is gate
+void badStartLoop()
+{
+  static unsigned long badStartLoopTimerOld, badStartIntervall = 300;
+
+  if (badStart == true)
   {
-    if (mod_mode == MOD_START) // module at start gate
+    if (timerFalseStart.isRunning() == false)
     {
-      if (lightBarrierBeam == BEAM_LOST) // gate triggered :: falsestart
-      {
-        beepLow();
-        sw_stop();
-      } // end of trigger
+      Serial.println("badStartLoop> start timer");
+      timerFalseStart.start();
     }
-    else if (mod_mode == MOD_FINISH) // module at finish gate
+
+    if (timerFalseStart.elapsed() < 3000)
     {
-      if (lightBarrierBeam == BEAM_LOST) // gate triggered :: count lap
+      if (millis() - badStartLoopTimerOld > badStartIntervall)
       {
-        beepMid();
-        sw_lap();
-      } // end of trigger
+        ledRun.off();
+        ledGate.on();
+        beepHigh();
+        badStartLoopTimerOld = millis();
+      } // timer expired
+      else
+      {
+        ledRun.on();
+        ledGate.off();
+      }
     }
-  } // end of active gate
+    else
+    {
+      badStart = false;
+      ledRun.off();
+      timerFalseStart.reset();
+    }
 
-} // end of function
-
-// ---------------------------------------------------------------------------------------------------------
-void beepOff()
-{
-  // Serial.println("beepOff");
-  EasyBuzzer.stopBeep();
-} // end of function
-
-// ---------------------------------------------------------------------------------------------------------
-void beepHigh()
-{
-  // Serial.println("beepHigh");
-  EasyBuzzer.singleBeep(frequencyHigh, duration);
-} // end of function
-
-// ---------------------------------------------------------------------------------------------------------
-void beepMid()
-{
-  // Serial.println("beepMid");
-  EasyBuzzer.singleBeep(frequencyMid, duration);
-} // end of function
-
-// ---------------------------------------------------------------------------------------------------------
-void beepLow()
-{
-  // Serial.println("beepLow");
-  EasyBuzzer.singleBeep(frequencyLow, duration);
-} // end of function
-
-// ---------------------------------------------------------------------------------------------------------
-void setupBuzzer()
-{
-  Serial.printf("setupBuzzer on PIN %d\n", PIN_BUZ_1);
-  EasyBuzzer.setPin(PIN_BUZ_1);
-} // end of function
+  } // GATE sys_mode
+}
 
 // ---------------------------------------------------------------------------------------------------------
 void send_SW_Mode()
@@ -1207,8 +1255,9 @@ void send_SW_Timer()
 // ---------------------------------------------------------------------------------------------------------
 void send_Admin()
 {
-  wsSendAdmin(localAddress, incomingRSSI, incomingSNR, swRoundtrip,
-              (unsigned int)lightBarrierActive, (unsigned int)lightBarrierBeam);
+  wsSendAdmin(localAddress, (unsigned int)loraConnected, incomingRSSI, incomingSNR, swRoundtrip,
+              (unsigned int)lightBarrierActive, (unsigned int)lightBarrierBeam,
+              (unsigned int)buzzerEnabled());
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -1223,7 +1272,7 @@ void save_preferences()
 {
   unsigned int prefMode = (int)mod_mode;
 
-  myPreferences.begin("stopwatch", false);    /* Start a namespace "iotsharing"in Read-Write mode */
+  myPreferences.begin("stopwatch", false);     /* Start a namespace "iotsharing"in Read-Write mode */
   myPreferences.putUInt("mod_mode", prefMode); /* Store preset to the Preferences */
   Serial.printf("save_preferences> mod_mode %u - %s (write %u)\n", mod_mode, mod_mode_name[mod_mode], prefMode);
 
@@ -1263,10 +1312,10 @@ void setup()
 
   setup_preferences();
 
-  myMAC = setup_ID(); // set sender id by using last byte from chipID
-  setupBuzzer();      // assign pin to buzzer
-  setup_button();     // assign buttons and register callback
-  setup_battery();    // enable ADC for battery measurement
+  myMAC = setup_ID();     // set sender id by using last byte from chipID
+  setupBuzzer(PIN_BUZ_1); // assign pin to buzzer
+  setup_button();         // assign buttons and register callback
+  setup_battery();        // enable ADC for battery measurement
 
   setup_oled(); // Initialise OLED Display settings
   oledPrint(0, 1, "LoRa STOPWATCH");
@@ -1281,12 +1330,24 @@ void setup()
 
   timerStopWatch.setResolution(StopWatch::MILLIS); // not needed, is default
   sw_reset();
+
+  if (digitalRead(PIN_BTN_3)) // Liest den Inputpin
+  {
+    Serial.println("setup> BEAM ACTIVE");
+    lightBarrierBeam = BEAM_ACTIVE;
+    ledRun.on();
+  }
+  else
+  {
+    Serial.println("setup> BEAM LOST");
+    lightBarrierBeam = BEAM_LOST;
+    ledRun.off();
+  }
+
   oledClear();
 
-  ledRun.off();
   ledGate.off();
   ledLora.off();
-
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -1301,10 +1362,11 @@ void loop()
   button2.check(); // check if button was pressed
   button3.check(); // check if button was pressed
 
-  EasyBuzzer.update();                  // play buzzer if requested
+  buzzerLoop();                         // beep
   deepSleepLoop(sw_mode, &MyDeepSleep); // check if device should go into sleep
 
-  gateLoop(); // gate setup mode: buzzer
+  gateLoop();     // gate setup mode: buzzer
+  badStartLoop(); // indicating falsestart
 
   ledRun.loop();
   ledGate.loop();

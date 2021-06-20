@@ -7,7 +7,7 @@
 #include "Arduino.h"
 #include <StopWatch.h>
 
-#define FIRMWARE_VERSION "1.0.2"
+#define FIRMWARE_VERSION "1.0.3"
 
 // #include "FS.h"
 // #include "LITTLEFS.h" //this needs to be first, or it all crashes and burns...
@@ -90,39 +90,7 @@ enum button2_modes
     BTN2_BACK
 };
 
-enum gui_modes
-{
-    GUI_BOOT, // 0 pure text
-    GUI_1,    // 1
-    GUI_2,    // 2 Volume
-    GUI_3,    // 3 Preset
-    GUI_4,    // 4 LightBarrier
-    GUI_5     // 5 Admin
-};
 
-struct module_data_struct
-{
-    int radioCurrentVolume = 0;
-    int radioCurrentStation = 0;
-    int radioNextStation = 0;
-    bool radioMute = false;
-    char radioSongTitle[100];
-    char radioArtist[100];
-    char radioTitleSeperator = ':';
-    bool radioArtistFirst = true;
-    bool radioRotaryVolume = true;
-    bool preSelect = false;
-};
-
-struct wifi_data_struct
-{
-    char rssiChar[20]; // wifi signal strength
-    int rssiLevel = 0; // wifi signal strength
-    char ssidChar[20]; // SSID - wlan name
-    char IPChar[20];   // SSID - wlan name
-    char timeOfDayChar[20];
-    char dateChar[20];
-};
 
 void oledInit();
 void configLora();
@@ -167,13 +135,15 @@ void send_SW_Count();
 void send_Admin();
 void wsSendMode(int sys_mode, int sw_mode, int mod_mode);
 void wsSendTimer(unsigned int sw_timer, unsigned int timerUsed, unsigned int timeLaps[]);
-void wsSendAdmin(byte localAddress, int incomingRSSI, float incomingSNR, unsigned int swRoundtrip,
-                 unsigned int lightBarrierActive, unsigned int lightBarrierBeam);
+void wsSendAdmin(byte localAddress,
+                 unsigned int loraConnected, int incomingRSSI, float incomingSNR, unsigned int swRoundtrip,
+                 unsigned int lightBarrierActive, unsigned int lightBarrierBeam, unsigned int buzzerActive);
 void wsSendCountdown(int count);
 void send_SW_Timer();
 void ws_SysMode(system_modes wsSysMode);
 void ws_ModMode(module_modes trgt_mod_mode);
 system_modes mySysMode();
+void ws_BuzzerMode(bool wsBuzzerMode);
 
 void save_preferences();
 void setup_preferences();
@@ -181,5 +151,11 @@ void setup_preferences();
 void beepOff();
 void setup_battery();
 int battery_info();
+
+void setupBuzzer(unsigned int PIN_BUZ_1);
+void buzzerLoop();
+void buzzerOff();
+void buzzerOn();
+bool buzzerEnabled();
 
 #endif

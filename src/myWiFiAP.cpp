@@ -84,20 +84,24 @@ void wsSendCountdown(int count)
 
 // --------------------------------------------------------------------------
 // websocket - send modes for system and stopwtach - see main.h
-void wsSendAdmin(byte localAddress, int incomingRSSI, float incomingSNR, unsigned int swRoundtrip,
-                 unsigned int lightBarrierActive, unsigned int lightBarrierBeam)
+void wsSendAdmin(byte localAddress,
+                 unsigned int loraConnected, int incomingRSSI, float incomingSNR, unsigned int swRoundtrip,
+                 unsigned int lightBarrierActive, unsigned int lightBarrierBeam, unsigned int buzzerActive)
 {
-    Serial.printf("wifi::wsSendAdmin> firmware %s, deviceID %2x, RSSI %d, SNR %2.1f, trip %d, gate %d, beam %d\n",
+    Serial.printf("wifi::wsSendAdmin> firmware %s, deviceID %2x, connected %d, RSSI %d, SNR %2.1f, trip %d, gate %d, beam %d, buzzer %d\n",
                   FIRMWARE_VERSION, localAddress,
-                  incomingRSSI, incomingSNR, swRoundtrip,
-                  lightBarrierActive, lightBarrierBeam);
+                  loraConnected, incomingRSSI, incomingSNR, swRoundtrip,
+                  lightBarrierActive, lightBarrierBeam,
+                  buzzerActive);
     ws.printfAll_P("admin_firmware=%s", FIRMWARE_VERSION);
     ws.printfAll_P("admin_deviceID=%2x", localAddress);
+    ws.printfAll_P("admin_connected=%d", loraConnected);
     ws.printfAll_P("admin_RSSI=%d", incomingRSSI);
     ws.printfAll_P("admin_SNR=%2.1f", incomingSNR);
     ws.printfAll_P("admin_roundtrip=%d", swRoundtrip);
     ws.printfAll_P("admin_lbactive=%d", lightBarrierActive);
     ws.printfAll_P("admin_beam=%d", lightBarrierBeam);
+    ws.printfAll_P("admin_buzzer=%d", buzzerActive);
 }
 
 // --------------------------------------------------------------------------
@@ -135,6 +139,14 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
             data[len] = 0;
             char *command = (char *)data;
             Serial.printf("onWsEvent> command: >%s< len: %d\n", command, strlen(command));
+
+            // example: onWsEvent> command: >sw_mode=1< len: 9
+            if (strncmp(command, "admin_buzzer", strlen("admin_buzzer")) == 0)
+            {
+                uint8_t trgt_buzzer_mode = atoi(command + strlen("admin_buzzer="));
+                Serial.printf("onWsEvent> set buzzer %d\n", trgt_buzzer_mode);
+                ws_BuzzerMode(trgt_buzzer_mode);
+            }
 
             // example: onWsEvent> command: >sw_mode=1< len: 9
             if (strncmp(command, "mod_mode", strlen("mod_mode")) == 0)

@@ -32,9 +32,13 @@ Order of operation in mode SYS_STARTLOOP
 
     >   admin_firmware=1.3  // firmware version
     >   admin_deviceID=2F   // ID of this modules transmitted in LoRa messages
+*   >   admin_connected=1   // LoRa connected
     >   admin_RSSI=-46      // LoRa signal strength
     >   admin_SNR=2.3       // LoRa signal quality
     >   admin_roundtrip=81  // LoRa roundtrip in ms
+*   >   admin_lbactive      // light barrier active
+*   >   admin_beam          // light barrier beam returned
+*   x   admin_buzzer        // buzzer on/off (boolean)
 
     RSSI    Strength 1/low ... 5/best
     -90     1
