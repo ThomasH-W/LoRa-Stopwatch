@@ -7,7 +7,7 @@
 #include "Arduino.h"
 #include <StopWatch.h>
 
-#define FIRMWARE_VERSION "1.0.3"
+#define FIRMWARE_VERSION "1.0.4"
 
 // #include "FS.h"
 // #include "LITTLEFS.h" //this needs to be first, or it all crashes and burns...
@@ -26,7 +26,7 @@ Order of operation in mode SYS_STOPWATCH
     SW_COUNTDOWN -> [btn1:stop] -> SW_RESET + [btn1=start]
     SW_RUNNING -> [btn1:stop] -> SW_RESET + [btn1=reset]
     SW_RESET -> [btn1:reset] -> SW_IDLE + [btn1=start]
-    SW_FALSESTART -> [btn1:stop] -> SW_RESET + [btn1=reset]
+*   SW_FALSESTART -> [btn1:stop] -> SW_RESET + [btn1=reset]
 
 Order of operation in mode SYS_STARTLOOP
     SW_IDLE -> [btn1:start] -> SW_COUNTDOWN

@@ -12,9 +12,6 @@
  * 
  *  check beam before enabling countdown, shown error on default page
  *  disable finish gate after stop
- *  implement gateTrigger for
- *  -- finish/lap 
- *  
  * 
  *  swTime < lap time
  *  roundtrip with 3+ devices
@@ -23,7 +20,6 @@
  *  config file with wifi
  *  solve timer difference of remote module
  *  show 1 digits  ms
- *  battery monitor
 */
 
 #include <Arduino.h>
@@ -562,16 +558,23 @@ void nextStopwatchMode(stopwatch_modes cur_mode)
     case SW_IDLE:
       sendMessage(SW_COUNTDOWN, sys_mode, "Start loop");
       delay(swRoundtrip); // grant some time so the other device will be started at the same time
-      // Serial.println("call sw_start");
+      Serial.println("++ Start loop - call sw_start");
       sw_start();
       break;
     case SW_COUNTDOWN:
       sendMessage(SW_STOP, sys_mode, "Stop loop");
-      Serial.println("call sw_stop");
+      Serial.println("++ Start loop - call sw_stop");
       sw_stop();
       sw_mode = SW_IDLE;
       break;
     case SW_FALSESTART:
+      sendMessage(SW_FALSESTART, sys_mode, "false start");
+      sw_mode = SW_FALSESTART;
+      badStart = true;
+      beepLow();
+      Serial.println("++ Start loop - call sw_stop");
+      sw_stop();
+      sw_mode = SW_IDLE;
       break;
     }                             // end switch
   }                               // end system in continous countdown mode
@@ -1235,6 +1238,8 @@ void badStartLoop()
       badStart = false;
       ledRun.off();
       timerFalseStart.reset();
+      if (sys_mode == SYS_STARTLOOP)
+        nextStopwatchMode(SW_IDLE);
     }
 
   } // GATE sys_mode

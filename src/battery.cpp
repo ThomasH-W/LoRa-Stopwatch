@@ -42,8 +42,8 @@ void setup_battery()
 
 int battery_info()
 {
-    Serial.printf("battery_info> lVmax: %.2f, R-Div:%.4f, A-Vmax:%.3f, D-Vmax:%.0f, conv2:%.3f ,conv: %.3f\n",
-                  lipo_v_max, lipo_R_div, lipo_ADC_V_MAX, lipo_ADC_D_MAX, lipo_conv_2, lipo_conv_factor);
+    // Serial.printf("battery_info> lVmax: %.2f, R-Div:%.4f, A-Vmax:%.3f, D-Vmax:%.0f, conv2:%.3f ,conv: %.3f\n",
+    //              lipo_v_max, lipo_R_div, lipo_ADC_V_MAX, lipo_ADC_D_MAX, lipo_conv_2, lipo_conv_factor);
 
     Serial.printf("battery_info> avg. value from pin %d: ", PIN_ADC_BAT);
     Serial.print(BL.pinRead());

@@ -1,4 +1,20 @@
 /*
+    ws-client update:
+
+    - recognize falsestart
+        RESET i/o Start
+
+    - header / status
+        remove: firmware, admin_SNR
+        add admin_beam
+
+    - admin page
+        show firmware, admin_SNR
+        switch: admin_buzzer on/off
+        select: mod_mode
+*/
+
+/*
   [btn1:start]: btn1 triggered: function of btn1 was start
   [btn1=stop]: btn1 function changing to stop
 
@@ -9,7 +25,7 @@ Order of operation in mode SYS_STOPWATCH
     SW_COUNTDOWN    -> [countdown expired]  -> SW_RUNNING + [btn2=lap]
     SW_RUNNING      -> [btn1:stop]  -> SW_RESET + [btn1=reset]
     SW_RESET        -> [btn1:reset] -> SW_IDLE + [btn1=start]
-    SW_FALSESTART   -> [btn1:stop]  -> SW_RESET + [btn1=reset]
+*   SW_FALSESTART   -> [btn1:stop]  -> SW_RESET + [btn1=reset]
 
 Order of operation in mode SYS_STARTLOOP
     SW_IDLE         -> [btn1:start] -> SW_COUNTDOWN
