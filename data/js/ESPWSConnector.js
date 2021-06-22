@@ -238,4 +238,8 @@ export default class ESPWSConnector {
   sysSetMode(mode) {
     this.send(`sys_mode=${mode}`);
   }
+
+  toggleMute() {
+    this.send(`sys_mode=${1-(this._admin.buzzer || 0)}`)
+  }
 }
