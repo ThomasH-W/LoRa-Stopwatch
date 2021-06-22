@@ -49,6 +49,7 @@ const lapTimesList = document.querySelector("#lapTimes tbody");
 const swWatch = document.querySelector("sw-watch");
 
 function onSWModeChange(mode) {
+  document.getElementById("sys_info__sw_mode").innerText = mode;
   // Update Stopwatch
   switch (mode) {
     case SW_MODE.RUNNING:
@@ -71,8 +72,10 @@ function onSWModeChange(mode) {
       lapButton.disabled = true;
       onLapTimesUpdate([]);
       break;
-    case SW_MODE.COUNTDOWN:
     case SW_MODE.FALSESTART:
+      swWatch.countdown = 0;
+    // Intentionally no break;
+    case SW_MODE.COUNTDOWN:
     case SW_MODE.STOP:
     case SW_MODE.RESET:
       if (swWatch.running) {
@@ -115,23 +118,46 @@ function onSWTimerUpdate(time) {
 }
 
 function onAdminInfoUpdate(adminInfo) {
-  document.getElementById("sys_info__firmware").innerText =
-    adminInfo.firmware || "-";
   document.getElementById("sys_info__id").innerText = adminInfo.deviceID || "-";
   document.getElementById("sys_info__rssi").innerText = adminInfo.RSSI || "-";
-  document.getElementById("sys_info__snr").innerText = adminInfo.SNR || "-";
   document.getElementById("sys_info__ping").innerText =
     adminInfo.roundtrip || "-";
+  document.getElementById("sys_info__mod_mode").innerText =
+    adminInfo.SNR || "-";
+  if (adminInfo.lbactive && adminInfo.beam) {
+    document.getElementById("sensor").classList.add("detecting");
+    document.getElementById("sensor").classList.remove("active");
+  }
+  else if (adminInfo.lbactive) {
+    document.getElementById("sensor").classList.remove("detecting");
+    document.getElementById("sensor").classList.add("active");
+  } else {
+    document.getElementById("sensor").classList.remove("detecting");
+    document.getElementById("sensor").classList.remove("active");
+  }
+  
+  if (adminInfo.buzzer) {
+    document.getElementById("mute_button").classList.remove("muted");
+    document.getElementById("mute_button").classList.add("unmuted");
+  } else {
+    document.getElementById("mute_button").classList.add("muted");
+    document.getElementById("mute_button").classList.remove("unmuted");
+  }
 }
 
 function onSysModeChange(sys_mode) {
   document.getElementById("sys_mode_select").value = sys_mode;
 }
 
+function onModModeChange(mod_mode) {
+  document.getElementById("sys_info__mod_mode").value = mod_mode;
+}
+
 async function main() {
   espConnector.onSWTimerUpdate = onSWTimerUpdate;
   espConnector.onSWModeChange = onSWModeChange;
   espConnector.onSysModeChange = onSysModeChange;
+  espConnector.onModModeChange = onModModeChange;
   espConnector.onLapTimesUpdate = onLapTimesUpdate;
   espConnector.onSWCountdownUpdate = onSWCountdownUpdate;
   espConnector.onAdminInfoUpdate = onAdminInfoUpdate;

@@ -12,7 +12,7 @@ swWatchTemplate.innerHTML = `
       align-items: center;
       justify-content: center;
       color: #fff;
-      background: radial-gradient(#111 50%, transparent 70%), conic-gradient(#a00, #a00 calc(var(--minute-progress, 0) * 360deg), transparent 0deg), #111;
+      background: radial-gradient(#111 50%, transparent 70%), conic-gradient(var(--intense-theme-color), var(--intense-theme-color) calc(var(--minute-progress, 0) * 360deg), transparent 0deg), #111;
       border-radius: 50%;
       font-variant-numeric: tabular-nums;
       position: relative;
