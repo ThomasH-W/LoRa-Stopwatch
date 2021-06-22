@@ -43,6 +43,9 @@ sysModeSelect.addEventListener("change", () =>
 
 const lapTimesList = document.querySelector("#lapTimes tbody");
 
+const muteButton = document.querySelector("#mute_button");
+muteButton.addEventListener("click", () => espConnector.toggleMute());
+
 /**
  * @type {SWWatch}
  */
@@ -125,12 +128,11 @@ function onAdminInfoUpdate(adminInfo) {
   if (adminInfo.beam == 2) {
     document.getElementById("sensor").classList.add("detecting");
     document.getElementById("sensor").classList.remove("active");
-  }
-  else {
+  } else {
     document.getElementById("sensor").classList.remove("detecting");
     document.getElementById("sensor").classList.add("active");
   }
-  
+
   if (adminInfo.buzzer) {
     document.getElementById("mute_button").classList.remove("muted");
     document.getElementById("mute_button").classList.add("unmuted");
