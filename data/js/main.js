@@ -90,6 +90,24 @@ function onSWModeChange(mode) {
       break;
   }
 
+  // update colors
+  switch (mode) {
+    case SW_MODE.RUNNING:
+    case SW_MODE.IDLE:
+      document.body.style.setProperty("--color-hue", "200deg");
+      break;
+    case SW_MODE.FALSESTART:
+      document.body.style.setProperty("--color-hue", "0deg");
+      break;
+    case SW_MODE.COUNTDOWN:
+      document.body.style.setProperty("--color-hue", "300deg");
+      break;
+    case SW_MODE.STOP:
+    case SW_MODE.RESET:
+      document.body.style.setProperty("--color-hue", "100deg");
+      break;
+  }
+
   if (mode == SW_MODE.IDLE) {
     swWatch.reset();
     lapButton.disabled = true;
