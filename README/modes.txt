@@ -56,6 +56,13 @@ Order of operation in mode SYS_STARTLOOP
 *   >   admin_beam          // light barrier beam returned
 *   x   admin_buzzer        // buzzer on/off (boolean)
 
+mod_mode    short   long
+    0       B       Basic
+    1       S       Start
+    2       F       Finish
+    3       L       Lap
+
+admin_RSSI
     RSSI    Strength 1/low ... 5/best
     -90     1
     -80     2
@@ -63,10 +70,12 @@ Order of operation in mode SYS_STARTLOOP
     -67     4
     -30     5
 
+admin_SNR
     SNR     quality 1/low ... 5/best
     10      5
     -20     0
-
+    
+admin_beam
     BEAM_INIT    0  // initializing system
     BEAM_ACTIVE  1  // beam received, waiting for disturbance
     BEAM_LOST    2  // object blocking beam or mirror out of line

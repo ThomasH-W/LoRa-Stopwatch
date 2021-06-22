@@ -971,11 +971,12 @@ void handleEvent(AceButton *button, uint8_t eventType, uint8_t buttonState)
     {
       Serial.printf("handleEvent> button 2: xxxx for pin %d\n", butPressed);
       nextSysMode(sys_mode);
-      send_Admin();
-    } 
+    }
     else if (butPressed == BUTTON3_PIN) // beam / light barrier
     {
-      Serial.printf("handleEvent> button 3: PRESS for pin %d\n", butPressed);
+      Serial.printf("handleEvent> button 3: PRESS for pin %d // sys_mode:%d, sw_mode:%d // mode_mode:%d, lbActive:%d\n",
+                    butPressed, sys_mode, sw_mode,
+                    mod_mode, lightBarrierActive);
 
       lightBarrierBeam = BEAM_LOST;
       if (sys_mode == SYS_STOPWATCH && sw_mode == SW_IDLE)
@@ -985,7 +986,10 @@ void handleEvent(AceButton *button, uint8_t eventType, uint8_t buttonState)
       }
 
       if (mod_mode == MOD_START && lightBarrierActive == true)
+      {
+        Serial.printf("handleEvent> button 3: mode_mode:%d - %s, lbActive:%d\n", mod_mode, mod_mode_name[mod_mode], lightBarrierActive);
         nextStopwatchMode(SW_FALSESTART);
+      }
       else if (mod_mode == MOD_LAP && lightBarrierActive == true)
         nextStopwatchMode(SW_LAP);
       else if (mod_mode == MOD_FINISH && lightBarrierActive == true)
@@ -998,8 +1002,10 @@ void handleEvent(AceButton *button, uint8_t eventType, uint8_t buttonState)
       Serial.printf("handleEvent> button 3 : RELEASE for pin %d\n", butPressed);
       lightBarrierBeam = BEAM_ACTIVE;
       if (sys_mode == SYS_STOPWATCH && sw_mode == SW_IDLE)
+      {
         ledRun.on();
-      send_Admin();
+        send_Admin();
+      }
     }
     break;
     /*
