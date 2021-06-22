@@ -122,18 +122,13 @@ function onAdminInfoUpdate(adminInfo) {
   document.getElementById("sys_info__rssi").innerText = adminInfo.RSSI || "-";
   document.getElementById("sys_info__ping").innerText =
     adminInfo.roundtrip || "-";
-  document.getElementById("sys_info__mod_mode").innerText =
-    adminInfo.SNR || "-";
-  if (adminInfo.lbactive && adminInfo.beam) {
+  if (adminInfo.beam == 2) {
     document.getElementById("sensor").classList.add("detecting");
     document.getElementById("sensor").classList.remove("active");
   }
-  else if (adminInfo.lbactive) {
+  else {
     document.getElementById("sensor").classList.remove("detecting");
     document.getElementById("sensor").classList.add("active");
-  } else {
-    document.getElementById("sensor").classList.remove("detecting");
-    document.getElementById("sensor").classList.remove("active");
   }
   
   if (adminInfo.buzzer) {
@@ -150,7 +145,7 @@ function onSysModeChange(sys_mode) {
 }
 
 function onModModeChange(mod_mode) {
-  document.getElementById("sys_info__mod_mode").value = mod_mode;
+  document.getElementById("sys_info__mod_mode").innerText = mod_mode;
 }
 
 async function main() {

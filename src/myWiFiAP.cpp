@@ -124,7 +124,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
     {
 
         Serial.println("onWsEvent> Websocket client connection received");
-        client->text("Hello from ESP32 Server");
+        //client->text("Hello from ESP32 Server");
         wsBroadcast();
     }
     else if (type == WS_EVT_DISCONNECT)

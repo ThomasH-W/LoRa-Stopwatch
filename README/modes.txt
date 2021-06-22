@@ -6,7 +6,7 @@
 
     - header / status
         remove: firmware, admin_SNR
-        add admin_beam
+        add admin_beam, mod_type
 
     - admin page
         show firmware, admin_SNR
@@ -66,6 +66,10 @@ Order of operation in mode SYS_STARTLOOP
     SNR     quality 1/low ... 5/best
     10      5
     -20     0
+
+    BEAM_INIT    0  // initializing system
+    BEAM_ACTIVE  1  // beam received, waiting for disturbance
+    BEAM_LOST    2  // object blocking beam or mirror out of line
 */
 
 enum module_modes

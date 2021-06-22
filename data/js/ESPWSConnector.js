@@ -186,19 +186,19 @@ export default class ESPWSConnector {
         }
         break;
       case "admin_lbactive":
-        this._admin.lbactive = args;
+        this._admin.lbactive = parseInt(args);
         if (this.onAdminInfoUpdate) {
           this.onAdminInfoUpdate(this._admin);
         }
         break;
       case "admin_beam":
-        this._admin.beam = args;
+        this._admin.beam = parseInt(args);
         if (this.onAdminInfoUpdate) {
           this.onAdminInfoUpdate(this._admin);
         }
         break;
       case "admin_buzzer":
-        this._admin.buzzer = args;
+        this._admin.buzzer = parseInt(args);
         if (this.onAdminInfoUpdate) {
           this.onAdminInfoUpdate(this._admin);
         }

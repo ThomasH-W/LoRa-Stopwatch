@@ -971,14 +971,18 @@ void handleEvent(AceButton *button, uint8_t eventType, uint8_t buttonState)
     {
       Serial.printf("handleEvent> button 2: xxxx for pin %d\n", butPressed);
       nextSysMode(sys_mode);
-    }
+      send_Admin();
+    } 
     else if (butPressed == BUTTON3_PIN) // beam / light barrier
     {
       Serial.printf("handleEvent> button 3: PRESS for pin %d\n", butPressed);
 
       lightBarrierBeam = BEAM_LOST;
       if (sys_mode == SYS_STOPWATCH && sw_mode == SW_IDLE)
+      {
         ledRun.off();
+        send_Admin();
+      }
 
       if (mod_mode == MOD_START && lightBarrierActive == true)
         nextStopwatchMode(SW_FALSESTART);
@@ -995,6 +999,7 @@ void handleEvent(AceButton *button, uint8_t eventType, uint8_t buttonState)
       lightBarrierBeam = BEAM_ACTIVE;
       if (sys_mode == SYS_STOPWATCH && sw_mode == SW_IDLE)
         ledRun.on();
+      send_Admin();
     }
     break;
     /*
