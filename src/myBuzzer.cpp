@@ -1,6 +1,8 @@
 
 #include <Arduino.h>
 #include "EasyBuzzer.h"
+#include "main.h"
+
 unsigned int frequencyHigh = 797;
 unsigned int frequencyLow = 641;
 unsigned int frequencyMid = 400;
@@ -42,11 +44,13 @@ void beepLow()
 void buzzerOff()
 {
     buzzerActive = false;
+    send_Admin();
 } // end of function
 
 void buzzerOn()
 {
     buzzerActive = true;
+    send_Admin();
 } // end of function
 
 bool buzzerEnabled()

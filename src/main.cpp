@@ -361,6 +361,19 @@ void sw_stop()
   beepMid();
 } // end of function
 
+void checkBeam()
+{
+  if (digitalRead(PIN_BTN_3)) // Liest den Inputpin
+  {
+    lightBarrierBeam = BEAM_ACTIVE;
+    ledRun.on();
+  }
+  else
+  {
+    lightBarrierBeam = BEAM_LOST;
+    ledRun.off();
+  }
+}
 // ---------------------------------------------------------------------------------------------------------
 // set currentTime = 0
 void sw_reset()
@@ -374,7 +387,10 @@ void sw_reset()
   timerCountdownRunning = false;
   timerRemoteStart = false;
   sw_mode_old = sw_mode;
-  sw_mode = SW_IDLE;
+  if (sw_mode == SW_FALSESTART)
+    sw_mode = SW_FALSESTART;
+  else
+    sw_mode = SW_IDLE;
   MyDeepSleep.reset();
   MyDeepSleep.start();
   swTime = 0;
@@ -386,17 +402,8 @@ void sw_reset()
   timeLapsUsed = 0;
   for (int i = 0; i < TIME_LAPS_MAX; i++) // clear old laps
     timeLaps[i] = 0;
+  checkBeam(); // read GPIO for beam
 
-  if (digitalRead(PIN_BTN_3)) // Liest den Inputpin
-  {
-    lightBarrierBeam = BEAM_ACTIVE;
-    ledRun.on();
-  }
-  else
-  {
-    lightBarrierBeam = BEAM_LOST;
-    ledRun.off();
-  }
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
@@ -535,6 +542,8 @@ void nextStopwatchMode(stopwatch_modes cur_mode)
       break;
     case SW_FALSESTART:
       sendMessage(SW_FALSESTART, sys_mode, "false start");
+      send_Admin();
+      send_SW_Mode();
       sw_mode = SW_FALSESTART;
       badStart = true;
       beepLow();
@@ -1208,52 +1217,60 @@ void gateLoop()
       gateLoopTimerOld = millis();
     } // timer expired
   }   // GATE sys_mode
-  else
-  {
-    beepOff();
-  }
 
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
-//  beep if sys mode is gate
+//  if falsestart: flash lights and beep for 3 sec
 void badStartLoop()
 {
   static unsigned long badStartLoopTimerOld, badStartIntervall = 300;
+  static bool oddTime = false;
 
   if (badStart == true)
   {
-    if (timerFalseStart.isRunning() == false)
+    if (timerFalseStart.isRunning() == false) //first time: start timer
     {
       Serial.println("badStartLoop> start timer");
       timerFalseStart.start();
+      timerCountdownRunning = false;
     }
 
-    if (timerFalseStart.elapsed() < 3000)
+    if (timerFalseStart.elapsed() < 3000) // if still active re timer not expired
     {
       if (millis() - badStartLoopTimerOld > badStartIntervall)
       {
-        ledRun.off();
-        ledGate.on();
-        beepHigh();
+        if (oddTime == true)
+        {
+          ledRun.off();
+          ledGate.on();
+          beepHigh();
+          Serial.print("+");
+          oddTime = false;
+        }
+        else
+        {
+          ledRun.on();
+          ledGate.off();
+          beepOff();
+          Serial.print(".");
+          oddTime = true;
+        }
         badStartLoopTimerOld = millis();
       } // timer expired
-      else
-      {
-        ledRun.on();
-        ledGate.off();
-      }
     }
-    else
+    else // falsestart timr expired - reset system
     {
       badStart = false;
+      oddTime = false;
       ledRun.off();
       timerFalseStart.reset();
-      if (sys_mode == SYS_STARTLOOP)
-        nextStopwatchMode(SW_IDLE);
+      checkBeam(); // read GPIO for beam
+      sw_mode = SW_IDLE;
+      Serial.println("#");
     }
 
-  } // GATE sys_mode
+  } // falsestart
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -1388,8 +1405,6 @@ void loop()
   ledGate.loop();
   ledLora.loop();
 
-  // ledRun.Update(); // lora roundtrip impacted by 30 ms
-  // ledGate.Update();
   WiFiAP_loop();
 
 } // end of function

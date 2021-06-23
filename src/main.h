@@ -7,7 +7,7 @@
 #include "Arduino.h"
 #include <StopWatch.h>
 
-#define FIRMWARE_VERSION "1.0.4"
+#define FIRMWARE_VERSION "1.0.6"
 
 // #include "FS.h"
 // #include "LITTLEFS.h" //this needs to be first, or it all crashes and burns...

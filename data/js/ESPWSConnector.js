@@ -240,6 +240,6 @@ export default class ESPWSConnector {
   }
 
   toggleMute() {
-    this.send(`sys_mode=${1-(this._admin.buzzer || 0)}`)
+    this.send(`admin_buzzer=${1 - (this._admin.buzzer || 0)}`)
   }
 }
