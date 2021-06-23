@@ -403,7 +403,7 @@ void sw_reset()
   for (int i = 0; i < TIME_LAPS_MAX; i++) // clear old laps
     timeLaps[i] = 0;
   checkBeam(); // read GPIO for beam
-
+  beepOff();
 } // end of function
 
 // ---------------------------------------------------------------------------------------------------------
