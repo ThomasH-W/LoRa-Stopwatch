@@ -32,7 +32,7 @@ main {
   height: 100%;
   min-height: 0;
   display: grid;
-  gap: 4rem 0;
+  gap: 1rem 0;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr min(66vw, 50vh) auto auto;
   grid-template-areas: "lapTimes lapTimes" "watch watch" "info_row info_row" "startStopReset lap";
