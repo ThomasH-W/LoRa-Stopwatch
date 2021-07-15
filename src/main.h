@@ -7,7 +7,7 @@
 #include "Arduino.h"
 #include <StopWatch.h>
 
-#define FIRMWARE_VERSION "1.0.6"
+#define FIRMWARE_VERSION "1.1.3"
 
 // #include "FS.h"
 // #include "LITTLEFS.h" //this needs to be first, or it all crashes and burns...
@@ -90,12 +90,11 @@ enum button2_modes
     BTN2_BACK
 };
 
-
-
 void oledInit();
 void configLora();
 void configWifi();
 void connectWifi();
+module_modes myModMode();
 
 void setup_oled();
 void oledPrint(int x, int y, const char *message);
@@ -136,7 +135,7 @@ void send_Admin();
 void wsSendMode(int sys_mode, int sw_mode, int mod_mode);
 void wsSendTimer(unsigned int sw_timer, unsigned int timerUsed, unsigned int timeLaps[]);
 void wsSendAdmin(byte localAddress,
-                 unsigned int loraConnected, int incomingRSSI, float incomingSNR, unsigned int swRoundtrip,
+                 unsigned int loraConnected, int incomingRSSI, int incomingRSSIlevel, float incomingSNR, unsigned int swRoundtrip,
                  unsigned int lightBarrierActive, unsigned int lightBarrierBeam, unsigned int buzzerActive);
 void wsSendCountdown(int count);
 void send_SW_Timer();
@@ -157,5 +156,8 @@ void buzzerLoop();
 void buzzerOff();
 void buzzerOn();
 bool buzzerEnabled();
+
+int RSSI_dBm2Level(int dBm);
+int SNR_dBm2Level(float dBm);
 
 #endif

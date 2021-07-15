@@ -10,6 +10,8 @@
  *
  * ToDo:
  * 
+ * timeout hochsetzen - 30min 
+ * 
  *  check beam before enabling countdown, shown error on default page
  *  disable finish gate after stop
  * 
@@ -41,15 +43,18 @@ myLED ledLora(PIN_LED_LORA); // on board blue LED
 #include "Preferences.h"
 Preferences myPreferences; // create an instance of Preferences library
 
-byte incomingSwMode;  // incoming stopwatch mode
-byte incomingSysMode; // incoming system mode
-byte outgoingSwMode;  // incoming stopwatch mode
-byte outgoingSysMode; // incoming system mode
-int incomingRSSI;     // incoming RSSI
-float incomingSNR;    // incoming SNR
+byte incomingSwMode;   // incoming stopwatch mode
+byte incomingSysMode;  // incoming system mode
+byte outgoingSwMode;   // incoming stopwatch mode
+byte outgoingSysMode;  // incoming system mode
+int incomingRSSI;      // incoming RSSI
+int incomingRSSIlevel; // incoming RSSI qualitiy level 0...4
+float incomingSNR;     // incoming SNR
+int incomingSNRlevel;  // incoming SNR qualitiy level 0...4
 bool loraMessageReceived = false;
 
 bool oledUpdate = false;
+bool oledEnabled = true;
 
 // encrypt/decrypt will result in an additional 60ms roundtrip time
 // #define LORA_CRYPT
@@ -144,6 +149,12 @@ unsigned timerRemoteOffset = 30;
 
 int batteryLevel = 0;
 // ---------------------------------------------------------------------------------------------------------
+module_modes myModMode()
+{
+  return mod_mode;
+} // end of function
+
+// ---------------------------------------------------------------------------------------------------------
 system_modes mySysMode()
 {
   return sys_mode;
@@ -200,6 +211,8 @@ void loraLoop()
   if (loraMessageReceived == true)
   {
     loraMessageReceived = false;
+    incomingRSSIlevel = RSSI_dBm2Level(incomingRSSI);
+    incomingSNRlevel = SNR_dBm2Level(incomingSNR);
 
     /*
     Serial.printf("loraLoop> current  sw mode: %d %s, sys mode %d %s\n",
@@ -281,6 +294,11 @@ void loraLoop()
   // when idle, send ping in order to measure time for roundtrip
   if (sw_mode == SW_IDLE)
   {
+    if (sys_mode == SYS_ADMIN)
+      loraAliveIntervall = 500;
+    else
+      loraAliveIntervall = 5000;
+
     if (millis() - loraLoopTimerOld > loraAliveIntervall)
     {
       Serial.println("LoRa - starting roundtrip, send ping");
@@ -353,12 +371,13 @@ void sw_stop()
   sw_mode_old = sw_mode;
   sw_mode = SW_RESET;
   oledUpdate = true;
+  oledEnabled = true;
   btn1_mode = BTN1_RESET;
   lightBarrierActive = false;
   ledGate.off();
   ledRun.off();
   send_SW_Timer(); // send timer to wifi clients
-  beepMid();
+  beepLow();
 } // end of function
 
 void checkBeam()
@@ -383,6 +402,7 @@ void sw_reset()
   timerRunning = false;
   countDownStep = COUNTDOWN_STEPS;
   timerCountdown.reset();
+  oledEnabled = true;
   oledClearRow(3);
   timerCountdownRunning = false;
   timerRemoteStart = false;
@@ -415,6 +435,7 @@ void sw_start()
   timerCountdownRunning = true;
   timerRunning = false;
   oledUpdate = true;
+  oledEnabled = false;
   sw_mode_old = sw_mode;
   sw_mode = SW_COUNTDOWN;
   btn1_mode = BTN1_STOP;
@@ -437,6 +458,7 @@ void sw_run()
   sw_mode = SW_RUNNING;
   countDownStep = COUNTDOWN_STEPS;
   btn1_mode = BTN1_STOP;
+  send_SW_Mode();
   beepHigh();
   ledRun.blink3x();
   if (mod_mode == MOD_START) // if module is at start, deactivate light barrier
@@ -483,7 +505,7 @@ void stopwatchLoop()
       send_SW_Count();
       ledRun.on();
       Serial.printf("stopwatchLoop> countdown = %d at %d\n", countDownStep, timerCountdown.elapsed());
-      beepLow();
+      beepMid();
       // ledRun.blink1x();
 
       itoa(countDownStep, buf, 10);
@@ -698,10 +720,10 @@ void oledAdmin(bool initAdmin)
   sprintf(buf, "%2x", localAddress);
   oledPrint(7, 3, buf);
 
-  sprintf(buf, "%d", incomingRSSI);
+  sprintf(buf, "%d %d/4", incomingRSSI, incomingRSSIlevel);
   oledPrint(7, 4, buf);
 
-  sprintf(buf, "%2.1f", incomingSNR);
+  sprintf(buf, "%2.1f %d/4", incomingSNR, incomingSNRlevel);
   oledPrint(7, 5, buf);
 
   sprintf(buf, "%d", batteryLevel);
@@ -746,14 +768,18 @@ void oledGate(bool initAdmin)
 // ---------------------------------------------------------------------------------------------------------
 void oledLoop()
 {
-  static unsigned long oledTimerOld, oledUpdateIntervall = 94;
+  static unsigned long oledTimerOld, oledUpdateIntervall = 294;
   static stopwatch_modes oled_sw_mode_old = SW_RESET;
   static system_modes oled_sys_mode_old = SYS_BOOT;
   static unsigned int oldTimeLapsUsed = 0;
   char buf[20];
 
+  if (oledEnabled == false) // disable OLED to ensure GATE will be trigered
+    return;
+
   if ((millis() - oledTimerOld > oledUpdateIntervall) || oledUpdate == true)
   {
+    // ------------------------------------------------------------------------------- SW_RUNNING
     if (sw_mode == SW_RUNNING)
     {
       swTime = timerStopWatch.elapsed();
@@ -787,6 +813,7 @@ void oledLoop()
         oldTimeLapsUsed = timeLapsUsed;
       } // timeLapsUsed updated
     }
+    // ------------------------------------------------------------------------------- SW_RESET
     else if (sw_mode == SW_RESET)
     {
       // Serial.printf("oledStatus> time: %u\n", swTime);
@@ -794,13 +821,13 @@ void oledLoop()
       oled2xPrint(0, 3, buf);
       oldTimeLapsUsed = 0;
     }
+    // ------------------------------------------------------------------------------- SW_IDLE
     else if (sw_mode == SW_IDLE)
     {
-
       if (badStart == true)
         oledPrint(0, 6, "FALSESTART");
       else
-        oledPrint(0, 6, "          ");
+        oledPrint(0, 6, "          "); // xxxx
 
       if (loraConnected == true) // show status of LoRa connection
       {
@@ -835,9 +862,10 @@ void oledLoop()
 
     } // SW_RESET
 
+    // ------------------------------------------------------------------------------- oled_sw_mode_old
     if (sw_mode != oled_sw_mode_old)
     {
-      send_SW_Mode();
+      send_SW_Mode(); // wifi
       if (sw_mode == SW_RUNNING)
       {
         btn2_mode = BTN2_LAP;
@@ -864,9 +892,10 @@ void oledLoop()
       oled_sw_mode_old = sw_mode;
     } // mode changed, udate required
 
+    // ------------------------------------------------------------------------------- oled_sys_mode_old
     if (sys_mode != oled_sys_mode_old)
     {
-      send_SW_Mode();
+      send_SW_Mode(); // wifi
       if (oled_sys_mode_old == SYS_GATE)
       {
         oledClear();                 // clear screen
@@ -901,8 +930,7 @@ void oledLoop()
       {
         oledAdmin(false);
       }
-
-      if (sys_mode == SYS_GATE)
+      else if (sys_mode == SYS_GATE)
       {
         oledGate(false);
       }
@@ -928,10 +956,10 @@ void setup_button()
   // level events.
   ButtonConfig *buttonConfig = ButtonConfig::getSystemButtonConfig();
   buttonConfig->setEventHandler(handleEvent);
-  buttonConfig->setFeature(ButtonConfig::kFeatureClick);
-  buttonConfig->setFeature(ButtonConfig::kFeatureDoubleClick);
-  buttonConfig->setFeature(ButtonConfig::kFeatureLongPress);
-  buttonConfig->setFeature(ButtonConfig::kFeatureRepeatPress);
+  //  buttonConfig->setFeature(ButtonConfig::kFeatureClick);
+  //  buttonConfig->setFeature(ButtonConfig::kFeatureDoubleClick);
+  //  buttonConfig->setFeature(ButtonConfig::kFeatureLongPress);
+  //  buttonConfig->setFeature(ButtonConfig::kFeatureRepeatPress);
 
   // Check if the button was pressed while booting
   if (button1.isPressedRaw())
@@ -1288,7 +1316,7 @@ void send_SW_Timer()
 // ---------------------------------------------------------------------------------------------------------
 void send_Admin()
 {
-  wsSendAdmin(localAddress, (unsigned int)loraConnected, incomingRSSI, incomingSNR, swRoundtrip,
+  wsSendAdmin(localAddress, (unsigned int)loraConnected, incomingRSSI, incomingRSSIlevel, incomingSNR, swRoundtrip,
               (unsigned int)lightBarrierActive, (unsigned int)lightBarrierBeam,
               (unsigned int)buzzerEnabled());
 } // end of function
@@ -1386,14 +1414,17 @@ void setup()
 // ---------------------------------------------------------------------------------------------------------
 void loop()
 {
-
-  oledLoop();      // update display
-  stopwatchLoop(); // check if countdown is running
-  loraLoop();      // check if message was received and process it; when idle send message every 5 sec
-
   button1.check(); // check if button was pressed
   button2.check(); // check if button was pressed
   button3.check(); // check if button was pressed
+
+  oledLoop();      // update display
+  button1.check(); // check if button was pressed
+  button2.check(); // check if button was pressed
+  button3.check(); // check if button was pressed
+
+  stopwatchLoop(); // check if countdown is running
+  loraLoop();      // check if message was received and process it; when idle send message every 5 sec
 
   buzzerLoop();                         // beep
   deepSleepLoop(sw_mode, &MyDeepSleep); // check if device should go into sleep

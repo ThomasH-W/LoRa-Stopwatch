@@ -3,9 +3,11 @@
 #include "EasyBuzzer.h"
 #include "main.h"
 
-unsigned int frequencyHigh = 797;
-unsigned int frequencyLow = 641;
-unsigned int frequencyMid = 400;
+// async: https://github.com/fabianoriccardi/melody-player/blob/master/src/melody_player.cpp
+
+unsigned int frequencyHigh = 784; // START         -- NOTE_G5 784 // 797
+unsigned int frequencyMid = 698;  // CNT + LAP     -- NOTE_F5 698 // NOTE_E5 659 // 641 // 587
+unsigned int frequencyLow = 440;  // STOP + FALSE  -- NOTE_A4 440 // 400
 unsigned int duration = 200;
 
 bool buzzerActive = true;

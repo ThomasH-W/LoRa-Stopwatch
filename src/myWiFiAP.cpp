@@ -40,6 +40,75 @@ unsigned int dnsInterval = 2000;
 const byte DNS_PORT = 53;
 DNSServer dnsServer;
 
+/*
+ * Written by Ahmad Shamshiri
+  * with lots of research, this sources was used:
+ * https://support.randomsolutions.nl/827069-Best-dBm-Values-for-Wifi 
+ * This is approximate percentage calculation of RSSI
+ * WiFi Signal Strength Calculation
+ * Written Aug 08, 2019 at 21:45 in Ajax, Ontario, Canada
+-30 dBm	Max achievable signal strength. The client can only be a few feet from the AP to achieve this.
+-67 dBm	Minimum signal strength for applications that require very reliable, timely packet delivery.	VoIP/VoWiFi, streaming video
+-70 dBm	Minimum signal strength for reliable packet delivery.	Email, web
+-80 dBm	Minimum signal strength for basic connectivity. Packet delivery may be unreliable.	N/A
+-90 dBm	Approaching or drowning in the noise floor. Any functionality is highly unlikely.
+ 
+ */
+
+// ----------------------------------------------------------------------------------------
+// type     excellent   good    medium  poor    off
+// quality  4           3       2       1       0
+// perc     100%        80%     50%     30%
+// RSSI    -50          -60     -70     -80     -90
+int RSSI_dBm2Level(int dBm)
+{
+    Serial.print("LoRa RSSI = ");
+    Serial.print(dBm);
+    Serial.print(" db , level = ");
+
+    int quality = 0;
+    if (dBm > -50) // excellent
+        quality = 4;
+    else if (dBm > -60) // good
+        quality = 3;
+    else if (dBm > -70) // medium
+        quality = 2;
+    else if (dBm > -80) // poor
+        quality = 1;
+    else if (dBm > -90) // off
+        quality = 0;
+
+    Serial.print(quality);
+    Serial.println("/4");
+    return quality;
+} // end of fuction dBmtoLevel
+
+// ----------------------------------------------------------------------------------------
+// type     excellent   good    medium  poor    off
+// quality  4           3       2       1       0
+// perc     100%        80%     50%     30%
+// SNR      7          5      0         -10     -15
+// https://lora.readthedocs.io/en/latest/#snr
+int SNR_dBm2Level(float SNRdBm)
+{
+    Serial.printf("LoRa SNR = %2.1f db - level = ", SNRdBm);
+    int quality = 0;
+    if (SNRdBm > 7) // excellent
+        quality = 4;
+    else if (SNRdBm > 5) // good
+        quality = 3;
+    else if (SNRdBm > 0) // medium
+        quality = 2;
+    else if (SNRdBm > -10) // poor
+        quality = 1;
+    else if (SNRdBm > -15) // off
+        quality = 0;
+
+    Serial.print(quality);
+    Serial.println("/4");
+    return quality;
+} // end of fuction dBmtoLevel
+
 // --------------------------------------------------------------------------
 // websocket - send modes for system and stopwtach - see main.h
 void wsSendMode(int sys_mode, int sw_mode, int mod_mode)
@@ -85,9 +154,13 @@ void wsSendCountdown(int count)
 // --------------------------------------------------------------------------
 // websocket - send modes for system and stopwtach - see main.h
 void wsSendAdmin(byte localAddress,
-                 unsigned int loraConnected, int incomingRSSI, float incomingSNR, unsigned int swRoundtrip,
+                 unsigned int loraConnected, int incomingRSSI, int incomingRSSIlevel, float incomingSNR, unsigned int swRoundtrip,
                  unsigned int lightBarrierActive, unsigned int lightBarrierBeam, unsigned int buzzerActive)
 {
+    // Serial.printf("wifi::wsSendAdmin> convert ...");
+    // int incomingRSSIlevel = RSSI_dBm2Level(incomingRSSI);
+    // int incomingSNRlevel = SNR_dBm2Level(incomingSNR);
+
     Serial.printf("wifi::wsSendAdmin> firmware %s, deviceID %2x, connected %d, RSSI %d, SNR %2.1f, trip %d, gate %d, beam %d, buzzer %d\n",
                   FIRMWARE_VERSION, localAddress,
                   loraConnected, incomingRSSI, incomingSNR, swRoundtrip,
@@ -96,7 +169,8 @@ void wsSendAdmin(byte localAddress,
     ws.printfAll_P("admin_firmware=%s", FIRMWARE_VERSION);
     ws.printfAll_P("admin_deviceID=%2x", localAddress);
     ws.printfAll_P("admin_connected=%d", loraConnected);
-    ws.printfAll_P("admin_RSSI=%d", incomingRSSI);
+    ws.printfAll_P("admin_RSSI=%d", incomingRSSIlevel);
+    ws.printfAll_P("admin_RSSIlevel=%d", incomingRSSIlevel);
     ws.printfAll_P("admin_SNR=%2.1f", incomingSNR);
     ws.printfAll_P("admin_roundtrip=%d", swRoundtrip);
     ws.printfAll_P("admin_lbactive=%d", lightBarrierActive);
@@ -315,7 +389,20 @@ void setup_WiFiAP(uint32_t curMAC)
 {
     char buf[30];
 
-    sprintf(buf, "%s-%x", ssid, curMAC);
+    // unique SSID for each module
+    module_modes module_type = myModMode();
+    if (module_type == MOD_BASIC) // show module type
+        sprintf(buf, "%s-%x", ssid, curMAC);
+    else if (module_type == MOD_START) // show module type
+        sprintf(buf, "%s-Start-%x", ssid, curMAC);
+    else if (module_type == MOD_FINISH) // show module type
+        sprintf(buf, "%s-Finish-%x", ssid, curMAC);
+    else if (module_type == MOD_LAP) // show module type
+        sprintf(buf, "%s-Lap-%x", ssid, curMAC);
+
+    // same SSID for all LoRa modules - so you can use the one which is close to you
+    sprintf(buf, "%s", ssid);
+
     // Connect to Wi-Fi network with SSID and password
     Serial.printf("setup_WiFiAP> SSID: %s\n", buf);
     // Remove the password parameter, if you want the AP (Access Point) to be open
